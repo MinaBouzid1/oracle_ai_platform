@@ -1,0 +1,553 @@
+STRATÉGIES DE SAUVEGARDE ORACLE DATABASE AVEC RMAN
+====================================================
+
+1. CONCEPTS FONDAMENTAUX
+-------------------------
+
+### RPO (Recovery Point Objective)
+Définition : Perte de données maximale acceptable
+- 0 minute = Zero Data Loss (DataGuard, Standby)
+- 15 minutes = Archive logs fréquents
+- 1 heure = Archive logs horaires
+- 4 heures = Incrémentales fréquentes
+- 24 heures = Backup quotidien
+
+### RTO (Recovery Time Objective)  
+Définition : Temps maximum pour restaurer le service
+- 1 heure = Backup rapide, matériel performant, restore optimisé
+- 4 heures = Configuration standard
+- 8 heures = Peut inclure transport bandes
+- 24 heures = Environnement non-critique
+
+### Relation RPO/RTO et Coût
+RPO/RTO court = Coût élevé (infrastructure, stockage, bande passante)
+RPO/RTO long = Coût réduit mais risque business accru
+
+---
+
+2. TYPES DE SAUVEGARDES RMAN
+-----------------------------
+
+### A. FULL BACKUP (Sauvegarde Complète)
+```sql
+BACKUP DATABASE PLUS ARCHIVELOG;
+```
+
+Caractéristiques :
+- Tous les datafiles, controlfiles, SPFile
+- Durée : proportionnelle à la taille DB
+- Fréquence typique : Hebdomadaire ou quotidienne (petites DB)
+- Avantages : Restauration simple, une seule source
+- Inconvénients : Long, gourmand en stockage
+
+Taille : 100% de la base de données
+Durée estimée (1TB DB) : 2-4 heures
+Stockage requis : 1TB + compression (ratio ~2:1) = 500GB
+
+---
+
+### B. INCREMENTAL LEVEL 0 (Base Incrémentale)
+```sql
+BACKUP INCREMENTAL LEVEL 0 DATABASE;
+```
+
+Caractéristiques :
+- Équivalent à FULL backup
+- Point de départ pour incrémentales niveau 1
+- Tous les blocks utilisés copiés
+
+Usage : Remplacer FULL dans stratégies incrémentales
+
+---
+
+### C. INCREMENTAL LEVEL 1 (Sauvegarde Incrémentale)
+```sql
+BACKUP INCREMENTAL LEVEL 1 DATABASE;
+```
+
+Types :
+- **Differential (défaut)** : Blocks modifiés depuis dernier niveau 0 ou 1
+- **Cumulative** : Blocks modifiés depuis dernier niveau 0 uniquement
+
+Caractéristiques :
+- Seulement blocks modifiés
+- Durée : 10-30% d'un full backup
+- Fréquence : Quotidienne ou horaire
+
+Taille : 5-20% de la base (selon activité)
+Durée estimée (1TB DB) : 15-60 minutes
+
+Avantages :
+- Rapide
+- Économise stockage
+- Réduit fenêtre de backup
+
+Inconvénients :
+- Restore plus complexe (chaîne de backups)
+- Nécessite niveau 0 de base
+
+---
+
+### D. ARCHIVE LOG BACKUPS
+```sql
+BACKUP ARCHIVELOG ALL DELETE INPUT;
+```
+
+Caractéristiques :
+- Sauvegarde des redo logs archivés
+- Essentiel pour Point-In-Time Recovery
+- Peut être fréquent (15min, 1h)
+
+Taille : Variable (volume transactions)
+- DB peu active : 1-10GB/jour
+- DB très active : 100GB+/jour
+
+Fréquence selon RPO :
+- RPO 15min → Archive logs toutes les 15min
+- RPO 1h → Archive logs horaire
+- RPO 4h → Archive logs toutes les 4h
+
+---
+
+3. STRATÉGIES PAR CRITICITÉ
+----------------------------
+
+### STRATÉGIE 1 : MISSION CRITIQUE 24/7
+**Contexte :** Banque, E-commerce, Santé
+**RPO :** 15 minutes
+**RTO :** 1 heure
+
+```
+Backup Schedule :
+- Archive Logs : Toutes les 15 minutes
+  CONFIGURE ARCHIVELOG DELETION POLICY TO BACKED UP 1 TIMES TO DISK;
+  
+- Incremental Level 1 : Toutes les 2 heures
+  BACKUP INCREMENTAL LEVEL 1 DATABASE;
+  
+- Incremental Level 0 : Quotidien (3h du matin)
+  BACKUP INCREMENTAL LEVEL 0 DATABASE PLUS ARCHIVELOG DELETE INPUT;
+  
+- Rétention : 30 jours
+  CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 30 DAYS;
+```
+
+Stockage requis (1TB DB) :
+- Level 0 quotidien : 500GB compressé
+- Level 1 (x12/jour) : 50GB x 12 = 600GB
+- Archive logs : 100GB/jour x 30 = 3TB
+Total : ~4.1TB
+
+Coût : $$$$ (Élevé)
+
+Infrastructure :
+- Disk rapide (NVMe SSD)
+- Réseau 10Gbps+
+- Backup server dédié
+- Réplication temps réel (DataGuard recommandé)
+
+---
+
+### STRATÉGIE 2 : PRODUCTION BUSINESS HOURS
+**Contexte :** ERP, CRM (9h-18h Lun-Ven)
+**RPO :** 1 heure
+**RTO :** 4 heures
+
+```
+Backup Schedule :
+- Archive Logs : Horaire (pendant heures ouvrables)
+  0 9-18 * * 1-5  /usr/local/bin/backup_archivelogs.sh
+  
+- Incremental Level 1 : Quotidien (23h)
+  0 23 * * *  rman target / cmdfile=/scripts/level1.rman
+  
+- Incremental Level 0 : Hebdomadaire (Dimanche 2h)
+  0 2 * * 0  rman target / cmdfile=/scripts/level0.rman
+  
+- Rétention : 14 jours
+  CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 14 DAYS;
+```
+
+Stockage requis (1TB DB) :
+- Level 0 hebdo : 500GB
+- Level 1 quotidien : 100GB x 7 = 700GB
+- Archive logs : 50GB/jour x 14 = 700GB
+Total : ~1.9TB
+
+Coût : $$$ (Moyen-Élevé)
+
+Infrastructure :
+- Disk SSD ou SAS
+- Réseau 1Gbps
+- Backup pendant heures creuses
+
+---
+
+### STRATÉGIE 3 : PRÉ-PRODUCTION / UAT
+**Contexte :** Tests, Recette
+**RPO :** 4 heures
+**RTO :** 8 heures
+
+```
+Backup Schedule :
+- Archive Logs : Toutes les 4 heures
+  0 */4 * * *  /usr/local/bin/backup_archivelogs.sh
+  
+- Incremental Level 1 : Quotidien (2h)
+  0 2 * * *  rman target / cmdfile=/scripts/level1.rman
+  
+- Full Backup : Hebdomadaire (Samedi 23h)
+  0 23 * * 6  rman target / cmdfile=/scripts/full.rman
+  
+- Rétention : 7 jours
+  CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 7 DAYS;
+```
+
+Stockage requis (500GB DB) :
+- Full hebdo : 250GB
+- Level 1 quotidien : 50GB x 7 = 350GB
+- Archive logs : 20GB/jour x 7 = 140GB
+Total : ~740GB
+
+Coût : $$ (Moyen)
+
+---
+
+### STRATÉGIE 4 : DÉVELOPPEMENT / TEST
+**Contexte :** Dev, Sandbox
+**RPO :** 24 heures
+**RTO :** 24 heures
+
+```
+Backup Schedule :
+- Full Backup : Quotidien (3h)
+  0 3 * * *  rman target / cmdfile=/scripts/full.rman
+  
+- Archive Logs : Quotidien (avec full)
+  DELETE ARCHIVELOG ALL;  # Après backup
+  
+- Rétention : 3 jours
+  CONFIGURE RETENTION POLICY TO REDUNDANCY 3;
+```
+
+Stockage requis (200GB DB) :
+- Full quotidien : 100GB x 3 = 300GB
+Total : ~300GB
+
+Coût : $ (Faible)
+
+Note : Pas d'archive logs entre backups = possibilité perte 24h données
+
+---
+
+4. CONFIGURATION RMAN OPTIMALE
+-------------------------------
+
+### Configuration de Base
+```sql
+-- Connexion
+RMAN TARGET /
+
+-- Format des backups
+CONFIGURE CONTROLFILE AUTOBACKUP ON;
+CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '/backup/ora_%F';
+
+-- Parallélisme (selon CPU)
+CONFIGURE DEVICE TYPE DISK PARALLELISM 4;
+CONFIGURE DEFAULT DEVICE TYPE TO DISK;
+
+-- Compression
+CONFIGURE COMPRESSION ALGORITHM 'MEDIUM';  # Ou HIGH, LOW, BASIC
+
+-- Backup de contrôle et spfile
+CONFIGURE CONTROLFILE AUTOBACKUP ON;
+CONFIGURE BACKUP OPTIMIZATION ON;
+
+-- Exclusions (si nécessaire)
+CONFIGURE EXCLUDE FOR TABLESPACE TEMP;
+CONFIGURE EXCLUDE FOR TABLESPACE UNDO;
+```
+
+### Script Full Backup Complet
+```sql
+RUN {
+  # Allouer 4 canaux parallèles
+  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '/backup/full_%U' MAXPIECESIZE 32G;
+  ALLOCATE CHANNEL ch2 DEVICE TYPE DISK FORMAT '/backup/full_%U' MAXPIECESIZE 32G;
+  ALLOCATE CHANNEL ch3 DEVICE TYPE DISK FORMAT '/backup/full_%U' MAXPIECESIZE 32G;
+  ALLOCATE CHANNEL ch4 DEVICE TYPE DISK FORMAT '/backup/full_%U' MAXPIECESIZE 32G;
+  
+  # Backup archive logs actuels
+  BACKUP AS COMPRESSED BACKUPSET ARCHIVELOG ALL NOT BACKED UP 1 TIMES;
+  
+  # Backup de la base
+  BACKUP AS COMPRESSED BACKUPSET FULL DATABASE TAG 'FULL_BACKUP';
+  
+  # Backup archive logs générés pendant backup
+  BACKUP AS COMPRESSED BACKUPSET ARCHIVELOG ALL NOT BACKED UP 1 TIMES DELETE INPUT;
+  
+  # Backup contrôleur et spfile
+  BACKUP CURRENT CONTROLFILE FORMAT '/backup/control_%U';
+  BACKUP SPFILE FORMAT '/backup/spfile_%U';
+  
+  # Libérer canaux
+  RELEASE CHANNEL ch1;
+  RELEASE CHANNEL ch2;
+  RELEASE CHANNEL ch3;
+  RELEASE CHANNEL ch4;
+}
+
+# Suppression backups obsolètes
+DELETE NOPROMPT OBSOLETE;
+
+# Crosscheck (vérifier intégrité)
+CROSSCHECK BACKUP;
+CROSSCHECK ARCHIVELOG ALL;
+
+# Report
+LIST BACKUP SUMMARY;
+```
+
+### Script Incremental Level 1
+```sql
+RUN {
+  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '/backup/incr_%U';
+  ALLOCATE CHANNEL ch2 DEVICE TYPE DISK FORMAT '/backup/incr_%U';
+  
+  BACKUP AS COMPRESSED BACKUPSET 
+    INCREMENTAL LEVEL 1 
+    DATABASE 
+    TAG 'INCR_LEVEL1'
+    PLUS ARCHIVELOG DELETE INPUT;
+  
+  RELEASE CHANNEL ch1;
+  RELEASE CHANNEL ch2;
+}
+
+DELETE NOPROMPT OBSOLETE;
+```
+
+---
+
+5. STOCKAGE DES BACKUPS
+------------------------
+
+### Options de Destination
+
+#### A. Disque Local
+Avantages :
+- Rapide (restore en minutes)
+- Pas de délai d'accès
+- Idéal pour RTO court
+
+Inconvénients :
+- Coût élevé (SSD/SAS)
+- Risque si serveur compromis
+- Capacité limitée
+
+Usage : Backups récents (7 derniers jours)
+
+---
+
+#### B. NAS / SAN
+Avantages :
+- Centralisé
+- Partagé entre serveurs
+- Snapshots possibles
+
+Inconvénients :
+- Dépend du réseau
+- Coût modéré à élevé
+
+Usage : Backups moyen terme (7-30 jours)
+
+---
+
+#### C. Object Storage (S3, Azure Blob)
+Avantages :
+- Coût faible ($0.023/GB/mois AWS S3)
+- Scalabilité infinie
+- Durabilité 99.999999999%
+
+Inconvénients :
+- Latence réseau
+- Coût transfert (egress)
+
+Usage : Backups long terme (30+ jours), archivage légal
+
+Configuration RMAN pour S3 :
+```sql
+CONFIGURE CHANNEL DEVICE TYPE SBT 
+  PARMS 'SBT_LIBRARY=/opt/oracle/lib/libosbws.so, 
+         ENV=(OSB_WS_HOST=s3.amazonaws.com)';
+```
+
+---
+
+#### D. Bandes (Tape)
+Avantages :
+- Coût très faible ($/TB)
+- Stockage offline (sécurité ransomware)
+- Retention légale multi-années
+
+Inconvénients :
+- Lent (restore heures/jours)
+- Gestion complexe (robot, catalogage)
+- Obsolescence technologie
+
+Usage : Archivage 1+ an, compliance légale
+
+---
+
+6. RÈGLE 3-2-1 DE SAUVEGARDE
+-----------------------------
+
+Standard industrie pour protection données :
+
+**3** copies des données
+- Production (originale)
+- Backup primaire (disque)
+- Backup secondaire (bande/cloud)
+
+**2** supports différents
+- Disque local/NAS
+- Bande ou Cloud
+
+**1** copie hors site
+- Datacenter secondaire
+- Cloud AWS/Azure
+- Coffre physique distant
+
+Exemple :
+- Production : Serveur DB principal
+- Backup 1 : NAS datacenter primaire (7 jours)
+- Backup 2 : AWS S3 région secondaire (30 jours)
+- Backup 3 : Bandes stockées site distant (1 an)
+
+---
+
+7. TESTS DE RESTAURATION
+-------------------------
+
+### Pourquoi Tester ?
+
+Statistiques :
+- 34% des backups échouent lors du restore (Veeam 2023)
+- 58% des entreprises n'ont jamais testé leur DR (Disaster Recovery)
+
+Causes échecs :
+- Fichiers corrompus non détectés
+- Dépendances manquantes
+- Procédures obsolètes
+- Configurations changées
+
+### Fréquence Tests Recommandée
+
+Mission Critique : Mensuel
+Production : Trimestriel
+Pré-prod/Dev : Annuel
+
+### Procédure Test
+```sql
+# 1. Restore dans environnement isolé
+RMAN> RESTORE DATABASE PREVIEW;  # Vérifier disponibilité
+
+RMAN> RUN {
+  SET NEWNAME FOR DATABASE TO '/restore/%b';
+  RESTORE DATABASE;
+  SWITCH DATAFILE ALL;
+  RECOVER DATABASE;
+  ALTER DATABASE OPEN RESETLOGS;
+}
+
+# 2. Valider intégrité
+SELECT COUNT(*) FROM dba_objects;
+SELECT * FROM v$database;
+
+# 3. Test applicatif (connexion, requêtes métier)
+
+# 4. Mesurer temps restore (valider RTO)
+
+# 5. Documenter résultats et écarts
+```
+
+---
+
+8. MONITORING ET ALERTES
+-------------------------
+
+### Métriques Clés à Surveiller
+
+**Succès/Échec Backups**
+- Taux de succès : > 99%
+- Alerte si échec 2 fois consécutives
+
+**Durée Backups**
+- Baseline : durée normale
+- Alerte si +50% vs baseline (problème performance)
+
+**Taille Backups**
+- Croissance attendue : ~10-20%/an
+- Alerte si +100% soudain (investigation)
+
+**Espace Disque**
+- Seuil warning : 80% plein
+- Seuil critique : 90% plein
+
+**Archive Logs Non-Sauvegardés**
+- Alerte si > 100 archive logs en attente
+
+### Script Monitoring
+```sql
+-- Vérifier dernier backup
+SELECT MAX(completion_time) last_backup
+FROM v$rman_backup_job_details
+WHERE status = 'COMPLETED'
+AND input_type = 'DB FULL';
+
+-- Échecs récents
+SELECT start_time, end_time, status, input_type, output_device_type
+FROM v$rman_backup_job_details
+WHERE status != 'COMPLETED'
+AND start_time > SYSDATE - 7
+ORDER BY start_time DESC;
+
+-- Espace backup
+SELECT SUM(bytes)/1024/1024/1024 as size_gb
+FROM v$backup_piece
+WHERE completion_time > SYSDATE - 30;
+```
+
+---
+
+9. MATRICE DE DÉCISION RAPIDE
+------------------------------
+
+| RPO    | RTO    | Criticité    | Type Backup      | Fréquence Full | Fréquence Incr | Archive Logs | Rétention | Coût    |
+|--------|--------|--------------|------------------|----------------|----------------|--------------|-----------|---------|
+| 15min  | 1h     | Critique     | Incremental      | Quotidien      | 2h             | 15min        | 30j       | $$$$    |
+| 1h     | 4h     | Haute        | Incremental      | Hebdo          | Quotidien      | Horaire      | 14j       | $$$     |
+| 4h     | 8h     | Moyenne      | Differential     | Hebdo          | Quotidien      | 4h           | 7j        | $$      |
+| 24h    | 24h    | Faible       | Full             | Quotidien      | -              | Quotidien    | 3j        | $       |
+
+---
+
+10. CHECKLIST IMPLÉMENTATION
+-----------------------------
+
+□ Évaluer RPO/RTO business
+□ Calculer taille DB et croissance
+□ Dimensionner stockage backup (x3 minimum)
+□ Configurer RMAN (compression, parallélisme)
+□ Créer scripts backup (full, incr, archive logs)
+□ Planifier jobs (cron/DBMS_SCHEDULER)
+□ Configurer monitoring et alertes
+□ Documenter procédures
+□ Tester restore complet
+□ Former équipe exploitation
+□ Planifier tests trimestriels
+□ Auditer annuellement stratégie
+
+---
+
+FIN DU DOCUMENT

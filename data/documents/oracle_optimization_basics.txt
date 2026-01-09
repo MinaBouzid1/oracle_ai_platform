@@ -1,0 +1,43 @@
+Oracle Query Optimization - Best Practices
+
+1. INDEX USAGE
+- B-tree indexes are best for high cardinality columns
+- Bitmap indexes work well for low cardinality columns
+- Function-based indexes can optimize WHERE clauses with functions
+- Check index usage with: SELECT * FROM V$SQL_PLAN WHERE OPERATION LIKE '%INDEX%'
+
+2. TABLE ACCESS METHODS
+- FULL TABLE SCAN: Reads entire table, acceptable for small tables or when accessing most rows
+- INDEX RANGE SCAN: Most efficient for selective queries
+- INDEX UNIQUE SCAN: Fastest, used with unique constraints
+- TABLE ACCESS BY INDEX ROWID: Two-step process, can be slower
+
+3. JOIN OPTIMIZATION
+- NESTED LOOPS: Good for small result sets, driving table should be smallest
+- HASH JOIN: Efficient for large tables, requires memory
+- SORT MERGE JOIN: Used when no indexes available
+- Always join on indexed columns when possible
+
+4. COST-BASED OPTIMIZER
+- Gather statistics regularly: EXEC DBMS_STATS.GATHER_TABLE_STATS
+- Outdated statistics lead to poor execution plans
+- Check statistics age: SELECT TABLE_NAME, LAST_ANALYZED FROM USER_TABLES
+
+5. QUERY HINTS
+- /*+ INDEX(table_name index_name) */ forces index usage
+- /*+ FULL(table_name) */ forces full table scan
+- /*+ PARALLEL(table_name, degree) */ enables parallel execution
+- Use hints sparingly, let optimizer decide when possible
+
+6. COMMON ANTI-PATTERNS
+- SELECT * instead of specific columns (retrieves unnecessary data)
+- No WHERE clause on large tables (forces full scan)
+- Functions on indexed columns (prevents index usage)
+- Implicit data type conversions (can disable indexes)
+- NOT IN with NULLs (can cause performance issues)
+
+7. PERFORMANCE INDICATORS
+- High BUFFER_GETS relative to ROWS_PROCESSED indicates inefficiency
+- High DISK_READS suggests missing indexes or poor buffering
+- ELAPSED_TIME >> CPU_TIME indicates I/O bottleneck
+- Many EXECUTIONS with high ELAPSED_TIME = optimization candidate

@@ -1,0 +1,369 @@
+PATTERNS D'ANOMALIES ET MENACES ORACLE DATABASE
+=================================================
+
+1. SQL INJECTION - PATTERNS DE DÉTECTION
+-----------------------------------------
+
+### Patterns Classiques :
+- OR 1=1
+- ' OR 'a'='a
+- '; DROP TABLE
+- UNION SELECT
+- -- (commentaires SQL)
+- /* */ (commentaires bloc)
+- admin'--
+- 1' OR '1'='1
+- ' OR 1=1--
+- " OR ""="
+
+### Indicateurs dans les Logs :
+- Guillemets simples ou doubles anormaux dans OBJECT_NAME
+- Mots-clés SQL dans les noms d'objets (SELECT, UNION, DROP)
+- Commentaires SQL (--, /* */) dans les requêtes utilisateur
+- RETURNCODE = 0 malgré syntaxe suspecte
+- Multiples requêtes en une seule (séparées par ;)
+
+### Exemples Réels d'Attaques :
+ACTION: SELECT
+OBJECT_NAME: EMPLOYEES WHERE id=1 OR '1'='1
+Résultat: Bypass de l'authentification, retourne tous les employés
+
+ACTION: SELECT  
+OBJECT_NAME: USERS WHERE username='admin'--' AND password='xxx'
+Résultat: Le -- commente la vérification du mot de passe
+
+ACTION: SELECT
+OBJECT_NAME: PRODUCTS WHERE id=1 UNION SELECT username,password FROM USERS
+Résultat: Exfiltration des credentials utilisateurs
+
+### Niveau de Sévérité : 8-10/10 (CRITIQUE)
+
+---
+
+2. ESCALADE DE PRIVILÈGES
+--------------------------
+
+### Actions Suspectes :
+- GRANT SYSDBA TO user (par non-DBA)
+- GRANT DBA TO user
+- CREATE USER avec privilèges élevés
+- ALTER USER pour modifier mot de passe admin
+- GRANT ANY PRIVILEGE
+- GRANT SELECT ANY DICTIONARY
+- GRANT DROP ANY TABLE
+- GRANT ALTER SYSTEM
+
+### Red Flags :
+- Utilisateur APP_USER exécute GRANT
+- Création de compte avec nom suspect (BACKDOOR, HACKER, ADMIN2)
+- GRANT exécuté hors heures ouvrables
+- Escalade rapide (user normal → DBA en quelques secondes)
+- Privilèges WITH ADMIN OPTION accordés à non-admin
+
+### Exemples d'Attaques :
+ACTION: GRANT
+OBJECT_NAME: SYSDBA TO APP_USER
+USERNAME: APP_USER (devrait être DBA_ADMIN)
+Sévérité: CRITIQUE
+
+ACTION: CREATE USER
+OBJECT_NAME: BACKDOOR IDENTIFIED BY password123 DEFAULT TABLESPACE USERS
+USERNAME: APP_USER
+Sévérité: CRITIQUE
+
+ACTION: ALTER USER
+OBJECT_NAME: SYSTEM IDENTIFIED BY newhackedpassword
+USERNAME: APP_USER
+Sévérité: CRITIQUE
+
+### Niveau de Sévérité : 9-10/10 (CRITIQUE)
+
+---
+
+3. EXFILTRATION DE DONNÉES
+---------------------------
+
+### Indicateurs :
+- SELECT massif sur tables sensibles (SALARY_DATA, CREDIT_CARDS, SSN, PASSWORDS)
+- Volume anormal de ROWS_PROCESSED (> 10,000 lignes)
+- Requêtes SELECT ALL (*) sur tables critiques
+- Export de données (EXPDP, UTL_FILE)
+- Accès répété aux mêmes tables sensibles
+- Connexions depuis IP externes/inconnues
+- Utilisation de SQL*Plus en mode batch
+
+### Tables Sensibles à Surveiller :
+- EMPLOYEES (données personnelles)
+- SALARY_DATA (informations financières)
+- CREDIT_CARDS (données bancaires)
+- USERS / PASSWORDS (credentials)
+- CUSTOMERS (données clients)
+- MEDICAL_RECORDS (données santé)
+
+### Patterns Suspects :
+ACTION: SELECT
+OBJECT_NAME: SALARY_DATA
+ROWS_PROCESSED: 50,000+
+TIMESTAMP: 03:00 AM (hors heures)
+CLIENT_ID: IP externe
+Sévérité: CRITIQUE
+
+ACTION: SELECT
+OBJECT_NAME: CREDIT_CARDS WHERE 1=1
+USERNAME: APP_USER
+TERMINAL: UNKNOWN
+Sévérité: HAUTE
+
+### Contexte Aggravant :
+- Accès nocturne (0h-6h)
+- Week-end ou jours fériés
+- IP géographiquement éloignée
+- Première connexion depuis cette IP
+- Pas de connexions récentes de cet utilisateur
+
+### Niveau de Sévérité : 7-9/10 (HAUTE à CRITIQUE)
+
+---
+
+4. ACCÈS HORS HEURES OUVRABLES
+-------------------------------
+
+### Définition Heures Normales :
+- Lundi-Vendredi : 8h00 - 18h00
+- Week-end : Pas d'accès (sauf maintenance planifiée)
+- Jours fériés : Pas d'accès
+
+### Horaires Suspects :
+- 22h00 - 06h00 (nuit)
+- Samedi/Dimanche (sauf astreinte)
+- 1er janvier, 25 décembre, etc.
+
+### Exceptions Légitimes :
+- Utilisateurs d'astreinte (liste blanche)
+- Jobs automatisés (DBMS_SCHEDULER)
+- Backups planifiés (RMAN)
+- Monitoring (Nagios, Zabbix)
+
+### Calcul de Suspicion :
+Base: 5/10
++2 si table sensible
++2 si IP externe
++1 si TERMINAL = UNKNOWN
++1 si première connexion utilisateur
+Maximum: 10/10
+
+Exemple :
+TIMESTAMP: 2024-01-15 03:30:00 (nuit)
+USERNAME: APP_USER
+ACTION: SELECT
+OBJECT_NAME: SALARY_DATA
+CLIENT_ID: 203.0.113.50 (externe)
+Score: 5 + 2 + 2 + 1 = 10/10 → CRITIQUE
+
+### Niveau de Sévérité : 5-8/10 (MOYEN à HAUTE)
+
+---
+
+5. ATTAQUES PAR BRUTE FORCE
+----------------------------
+
+### Caractéristiques :
+- Multiples tentatives de connexion échouées (RETURNCODE = 1017, 1005)
+- Même IP, différents usernames
+- Ou même username, différents passwords
+- Intervalle court entre tentatives (< 1 minute)
+- Ciblage de comptes privilégiés (ADMIN, SYSTEM, SYS)
+
+### Patterns de Détection :
+- 5+ FAILED LOGIN en moins de 5 minutes
+- Même CLIENT_ID, usernames variés (dictionary attack)
+- Usernames communs testés (admin, root, oracle, test)
+- Après succès : actions suspectes immédiates
+
+### Exemple Typique :
+TIMESTAMP: 14:30:00 | USERNAME: admin | RETURNCODE: 1017 | CLIENT_ID: 192.168.1.50
+TIMESTAMP: 14:30:15 | USERNAME: root | RETURNCODE: 1017 | CLIENT_ID: 192.168.1.50
+TIMESTAMP: 14:30:30 | USERNAME: system | RETURNCODE: 1017 | CLIENT_ID: 192.168.1.50
+TIMESTAMP: 14:30:45 | USERNAME: oracle | RETURNCODE: 1017 | CLIENT_ID: 192.168.1.50
+TIMESTAMP: 14:31:00 | USERNAME: DBA_ADMIN | RETURNCODE: 0 | CLIENT_ID: 192.168.1.50 ← SUCCÈS
+TIMESTAMP: 14:31:05 | USERNAME: DBA_ADMIN | ACTION: SELECT | OBJECT_NAME: DBA_USERS
+
+Analyse : Attaque réussie suivie de reconnaissance système
+
+### Contre-Mesures :
+- Lock account après 3-5 tentatives
+- Délai exponentiel entre tentatives
+- Bannissement temporaire IP (firewall)
+- Alertes SOC en temps réel
+- MFA obligatoire pour comptes privilégiés
+
+### Niveau de Sévérité : 6-8/10 (MOYEN à HAUTE)
+
+---
+
+6. RECONNAISSANCE SYSTÈME
+--------------------------
+
+### Objectif Attaquant :
+- Cartographier la base de données
+- Identifier les comptes privilégiés
+- Trouver les tables sensibles
+- Localiser les failles de sécurité
+
+### Tables Cibles :
+- DBA_USERS (liste des utilisateurs)
+- DBA_TAB_PRIVS (privilèges sur tables)
+- DBA_SYS_PRIVS (privilèges système)
+- DBA_ROLES (rôles disponibles)
+- DBA_OBJECTS (tous les objets)
+- ALL_TABLES (tables accessibles)
+- V$SESSION (sessions actives)
+- V$SQL (requêtes en cours)
+
+### Pattern Suspect :
+Séquence rapide d'accès à ces vues système par utilisateur non-DBA
+
+Exemple :
+14:30:00 | SELECT * FROM DBA_USERS
+14:30:10 | SELECT * FROM DBA_TAB_PRIVS
+14:30:20 | SELECT * FROM DBA_SYS_PRIVS
+14:30:30 | SELECT * FROM DBA_OBJECTS WHERE OBJECT_TYPE='TABLE'
+Conclusion : Reconnaissance active
+
+### Niveau de Sévérité : 4-6/10 (FAIBLE à MOYEN)
+Note : Prélude à une attaque plus grave
+
+---
+
+7. BACKDOOR ET PERSISTANCE
+---------------------------
+
+### Techniques :
+- Création de comptes cachés (noms ressemblant à système)
+- Triggers malveillants (AFTER LOGON)
+- Jobs DBMS_SCHEDULER exécutant code malveillant
+- Procédures stockées avec privilèges AUTHID CURRENT_USER
+- Synonymes publics pointant vers objets malveillants
+
+### Exemples de Comptes Backdoor :
+- DBSNMP_BACKUP (ressemble à légitime)
+- SYS_ADMIN (confusion avec SYS)
+- ORACLE_SUPPORT
+- SYSTEM2
+- ADMIN_TEMP
+
+### Détection :
+- Comptes créés hors processus RH
+- Comptes jamais utilisés sauf sporadiquement
+- Connexions depuis IPs variables/internationales
+- Privilèges excessifs pour un compte "système"
+
+### Niveau de Sévérité : 9-10/10 (CRITIQUE)
+
+---
+
+8. DÉNI DE SERVICE (DoS)
+-------------------------
+
+### Techniques :
+- DROP TABLE sur tables critiques
+- TRUNCATE sur grandes tables
+- DELETE massifs sans WHERE
+- Boucles infinies en PL/SQL
+- Requêtes cartésiennes (FROM t1, t2, t3 sans JOIN)
+- Remplissage tablespaces (INSERT massifs)
+
+### Indicateurs :
+- Actions destructives (DROP, TRUNCATE)
+- Requêtes avec coût extrême (COST > 1,000,000)
+- TEMP tablespace plein soudainement
+- Sessions bloquées en masse
+- CPU 100% sur serveur DB
+
+### Exemple :
+ACTION: DROP
+OBJECT_NAME: ORDERS
+USERNAME: APP_USER
+Contexte : Table principale application → arrêt service
+
+### Niveau de Sévérité : 7-10/10 (HAUTE à CRITIQUE)
+
+---
+
+RÈGLES DE CORRÉLATION D'ÉVÉNEMENTS
+===================================
+
+### Scénario 1 : Kill Chain Complet
+1. Brute Force (5 tentatives échouées)
+2. Succès connexion
+3. Reconnaissance (accès DBA_USERS)
+4. Escalade privilèges (GRANT SYSDBA)
+5. Exfiltration (SELECT SALARY_DATA)
+Sévérité Finale : 10/10 CRITIQUE
+
+### Scénario 2 : Attaque APT (Advanced Persistent Threat)
+1. Création backdoor (CREATE USER SYS_BACKUP)
+2. Connexion sporadique sur plusieurs semaines
+3. Accès nocturnes répétés
+4. Exfiltration graduelle (petits volumes)
+Sévérité : 9/10 CRITIQUE (sophistiqué)
+
+### Scénario 3 : Insider Threat
+1. Utilisateur légitime (ANALYST)
+2. Accès normal pendant heures bureau
+3. Soudainement : accès tables RH/Finance (hors périmètre)
+4. Volume données anormal
+Sévérité : 8/10 HAUTE
+
+---
+
+INDICATEURS DE COMPROMISSION (IoC)
+===================================
+
+### Techniques Evasion :
+- Requêtes fragmentées (éviter mots-clés complets)
+- Encodage Base64/Hex des payloads
+- Time-based blind SQL injection (WAITFOR DELAY)
+- Tunneling via UTL_HTTP
+- Utilisation de DBMS_OBFUSCATION_TOOLKIT
+
+### Red Flags Absolus :
+✓ RETURNCODE = 0 sur requête avec OR 1=1
+✓ GRANT SYSDBA par non-DBA
+✓ SELECT * FROM PASSWORDS
+✓ DROP DATABASE
+✓ CREATE USER en dehors process RH
+✓ Accès 3h du matin tables financières
+✓ 10+ failed login même IP
+
+---
+
+RÉPONSE RECOMMANDÉE PAR SÉVÉRITÉ
+==================================
+
+### CRITIQUE (9-10/10) :
+1. Bloquer immédiatement IP source (firewall)
+2. Lock le compte compromis
+3. Auditer tous les logs 7 derniers jours
+4. Vérifier intégrité données (checksums)
+5. Escalade SOC/CSIRT
+6. Preservation preuves légales
+
+### HAUTE (7-8/10) :
+1. Alerter équipe sécurité
+2. Surveiller compte de près (monitoring renforcé)
+3. Review des privilèges
+4. Audit logs 24h
+
+### MOYENNE (5-6/10) :
+1. Logger l'incident
+2. Notification superviseur utilisateur
+3. Review si pattern se répète
+
+### FAIBLE (< 5/10) :
+1. Log pour analyse tendances
+2. Aucune action immédiate
+
+---
+
+FIN DU DOCUMENT

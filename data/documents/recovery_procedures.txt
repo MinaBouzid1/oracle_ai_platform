@@ -1,0 +1,715 @@
+PROCÉDURES DE RESTAURATION ET RÉCUPÉRATION ORACLE
+==================================================
+
+TABLE DES MATIÈRES
+------------------
+1. Restauration Complète (Complete Database Recovery)
+2. Point-In-Time Recovery (PITR)
+3. Récupération de Table (Table Recovery)
+4. Récupération de Tablespace
+5. Récupération de Datafile
+6. Récupération après perte Controlfile
+7. Flashback Technologies
+8. Diagnostic et Troubleshooting
+
+---
+
+1. RESTAURATION COMPLÈTE APRÈS CRASH
+=====================================
+
+## Contexte
+Base de données complètement indisponible suite à :
+- Crash serveur
+- Corruption disque
+- Défaillance matérielle
+- Erreur humaine (suppression fichiers)
+
+## Durée Estimée
+2 à 6 heures (selon taille DB et configuration)
+
+## Niveau de Risque
+ÉLEVÉ - Perte de données possible si mal exécuté
+
+## Prérequis
+□ Backups RMAN valides
+□ Archive logs depuis dernier backup
+□ Espace disque suffisant (2x taille DB)
+□ Accès SYSDBA
+□ Serveur restauré/opérationnel
+
+---
+
+## PROCÉDURE ÉTAPE PAR ÉTAPE
+
+### Étape 1 : Évaluation de la Situation (10 minutes)
+
+```bash
+# Vérifier état instance
+ps -ef | grep pmon
+lsnrctl status
+
+# Vérifier fichiers DB
+ls -lh /u01/app/oracle/oradata/ORCL/
+
+# Tenter connexion
+sqlplus / as sysdba
+```
+
+**Points de Décision :**
+- Instance démarrée ? → Shutdown abort d'abord
+- Fichiers présents ? → Détermine si RESTORE nécessaire
+- Archive logs ? → Localiser emplacement
+
+---
+
+### Étape 2 : Préparer l'Environnement (15 minutes)
+
+```bash
+# 1. Arrêter instance si active
+sqlplus / as sysdba
+SQL> SHUTDOWN ABORT;
+SQL> EXIT;
+
+# 2. Sauvegarder fichiers corrompus (forensics)
+mkdir /backup/corrupt_files_$(date +%Y%m%d)
+cp /u01/app/oracle/oradata/ORCL/* /backup/corrupt_files_$(date +%Y%m%d)/
+
+# 3. Vérifier espace disque
+df -h /u01
+# Requis : Au moins 2x taille DB libre
+
+# 4. Vérifier backups disponibles
+rman target /
+RMAN> LIST BACKUP SUMMARY;
+RMAN> LIST BACKUP OF DATABASE;
+RMAN> EXIT;
+```
+
+**Validation :**
+✓ Instance arrêtée
+✓ Backups identifiés
+✓ Espace disque suffisant
+
+---
+
+### Étape 3 : Démarrer Instance en NOMOUNT (5 minutes)
+
+```sql
+sqlplus / as sysdba
+
+-- Créer pfile depuis spfile si backup disponible
+CREATE PFILE='/tmp/init_restore.ora' FROM SPFILE;
+
+-- OU créer pfile minimal si nécessaire
+-- Éditer /tmp/init_restore.ora avec paramètres de base
+
+-- Démarrer en NOMOUNT
+STARTUP NOMOUNT PFILE='/tmp/init_restore.ora';
+
+-- Vérifier
+SELECT instance_name, status FROM v$instance;
+-- Résultat attendu : STATUS = 'STARTED'
+```
+
+**Validation :**
+✓ Instance en mode NOMOUNT
+✓ Processus background démarrés (PMON, SMON, etc.)
+
+---
+
+### Étape 4 : Restaurer le Controlfile (15 minutes)
+
+```sql
+-- Si controlfile sauvegardé avec autobackup
+RMAN TARGET /
+
+RMAN> SET DBID 1234567890;  -- Si nécessaire (voir backup)
+
+RMAN> RESTORE CONTROLFILE FROM AUTOBACKUP;
+-- OU spécifier emplacement
+RMAN> RESTORE CONTROLFILE FROM '/backup/control_c-1234567890-20240115-00';
+
+-- Monter la base
+RMAN> ALTER DATABASE MOUNT;
+
+RMAN> EXIT;
+```
+
+**Vérification :**
+```sql
+sqlplus / as sysdba
+SELECT name, open_mode FROM v$database;
+-- Résultat : OPEN_MODE = 'MOUNTED'
+```
+
+**Validation :**
+✓ Controlfile restauré
+✓ Database en mode MOUNT
+
+---
+
+### Étape 5 : Restaurer les Datafiles (1-3 heures)
+
+```sql
+RMAN TARGET /
+
+-- Vérifier quels fichiers nécessitent restore
+RMAN> RESTORE DATABASE PREVIEW;
+
+-- Restaurer tous les datafiles
+RMAN> RUN {
+  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK;
+  ALLOCATE CHANNEL ch2 DEVICE TYPE DISK;
+  ALLOCATE CHANNEL ch3 DEVICE TYPE DISK;
+  ALLOCATE CHANNEL ch4 DEVICE TYPE DISK;
+  
+  RESTORE DATABASE;
+  
+  RELEASE CHANNEL ch1;
+  RELEASE CHANNEL ch2;
+  RELEASE CHANNEL ch3;
+  RELEASE CHANNEL ch4;
+}
+
+-- Vérifier status restore
+RMAN> LIST RESTORE;
+```
+
+**Monitoring Progression :**
+```sql
+-- Dans session SQL séparée
+SELECT sofar, totalwork, 
+       ROUND(sofar/totalwork*100,2) AS percent_done
+FROM v$session_longops
+WHERE opname = 'RMAN: restore datafile'
+AND sofar <> totalwork;
+```
+
+**Validation :**
+✓ RESTORE DATABASE terminé sans erreur
+✓ Tous datafiles restaurés
+
+**Durée Typique :**
+- 100GB : 15-30 minutes
+- 500GB : 1-2 heures
+- 1TB : 2-3 heures
+- 5TB : 6-12 heures
+
+---
+
+### Étape 6 : Appliquer les Archive Logs (RECOVER) (30 min - 2 heures)
+
+```sql
+RMAN TARGET /
+
+-- Option 1 : Recover jusqu'au dernier archive log disponible
+RMAN> RECOVER DATABASE;
+
+-- Option 2 : Recover jusqu'à un point précis (si nécessaire)
+RMAN> RUN {
+  SET UNTIL TIME "TO_DATE('2024-01-15 14:30:00', 'YYYY-MM-DD HH24:MI:SS')";
+  RECOVER DATABASE;
+}
+
+-- Monitoring progression
+-- (Dans session SQL séparée)
+SELECT sequence#, applied FROM v$archived_log
+WHERE applied = 'YES'
+ORDER BY sequence# DESC;
+```
+
+**Validation :**
+✓ RECOVER DATABASE terminé
+✓ Message : "media recovery complete"
+
+---
+
+### Étape 7 : Ouvrir la Base de Données (10 minutes)
+
+```sql
+sqlplus / as sysdba
+
+-- Ouvrir avec RESETLOGS (obligatoire après restore complet)
+SQL> ALTER DATABASE OPEN RESETLOGS;
+
+-- Vérifier ouverture
+SQL> SELECT name, open_mode, log_mode FROM v$database;
+-- Résultat attendu :
+-- OPEN_MODE = 'READ WRITE'
+-- LOG_MODE = 'ARCHIVELOG'
+
+-- Vérifier objets
+SQL> SELECT COUNT(*) FROM dba_objects;
+SQL> SELECT COUNT(*) FROM dba_tables WHERE owner NOT IN ('SYS','SYSTEM');
+```
+
+**Validation :**
+✓ Database OPEN en mode READ WRITE
+✓ Objets accessibles
+✓ Pas d'erreurs dans alert.log
+
+---
+
+### Étape 8 : Validation Post-Restore (30 minutes)
+
+```sql
+-- 1. Vérifier intégrité datafiles
+SELECT file_name, status FROM dba_data_files WHERE status != 'AVAILABLE';
+-- Résultat attendu : 0 ligne
+
+-- 2. Vérifier tablespaces
+SELECT tablespace_name, status FROM dba_tablespaces WHERE status != 'ONLINE';
+-- Résultat attendu : 0 ligne (sauf TEMP)
+
+-- 3. Vérifier objets invalides
+SELECT COUNT(*) FROM dba_objects WHERE status = 'INVALID';
+-- Acceptable : < 5% du total
+
+-- Recompiler si nécessaire
+EXEC DBMS_UTILITY.compile_schema('APPUSER');
+EXEC UTL_RECOMP.recomp_parallel(4);
+
+-- 4. Vérifier archive mode
+SELECT log_mode FROM v$database;
+-- Résultat attendu : ARCHIVELOG
+
+-- 5. Test applicatif simple
+SELECT COUNT(*) FROM hr.employees;
+-- Doit retourner données attendues
+```
+
+**Checklist Finale :**
+□ Base ouverte en READ WRITE
+□ Tous tablespaces ONLINE
+□ Objets valides (ou recompilés)
+□ Archive mode activé
+□ Application peut se connecter
+□ Requêtes métier fonctionnent
+
+---
+
+### Étape 9 : Reconfigurer et Monitoring (30 minutes)
+
+```bash
+# 1. Recréer SPFILE
+sqlplus / as sysdba
+CREATE SPFILE FROM PFILE='/tmp/init_restore.ora';
+
+# 2. Backup immédiat (nouvelle baseline)
+rman target /
+BACKUP DATABASE PLUS ARCHIVELOG;
+
+# 3. Vérifier alert.log
+tail -100 $ORACLE_BASE/diag/rdbms/orcl/ORCL/trace/alert_ORCL.log
+
+# 4. Activer monitoring
+# (redémarrer agents, scripts monitoring)
+
+# 5. Informer équipes
+# - Application team : DB disponible
+# - Management : incident résolu, durée totale
+```
+
+---
+
+## RÉSUMÉ TIMELINE COMPLÈTE
+
+| Étape | Action | Durée | Cumul |
+|-------|--------|-------|-------|
+| 1 | Évaluation | 10min | 10min |
+| 2 | Préparation | 15min | 25min |
+| 3 | NOMOUNT | 5min | 30min |
+| 4 | Restore Controlfile | 15min | 45min |
+| 5 | Restore Database | 1-3h | 2h-4h |
+| 6 | Recover (Apply Logs) | 30min-2h | 3h-6h |
+| 7 | Open Database | 10min | 3h10-6h10 |
+| 8 | Validation | 30min | 3h40-6h40 |
+| 9 | Reconfiguration | 30min | 4h10-7h10 |
+
+**Total : 4-7 heures (DB 1TB standard)**
+
+---
+
+## TROUBLESHOOTING COURANT
+
+### Erreur : "RMAN-06025: no backup of archived log found"
+**Cause :** Archive logs manquants
+**Solution :**
+```sql
+-- Récupérer depuis sauvegarde secondaire ou
+-- Accepter perte de données
+RECOVER DATABASE NOREDO;
+ALTER DATABASE OPEN RESETLOGS;
+```
+
+### Erreur : "ORA-01152: file 1 was not restored from a sufficiently old backup"
+**Cause :** Backup trop ancien, SCN incompatible
+**Solution :**
+```sql
+-- Utiliser backup plus récent ou
+RMAN> RESTORE DATABASE FROM TAG 'BACKUP_PLUS_RECENT';
+```
+
+### Erreur : "ORA-00283: recovery session canceled due to errors"
+**Cause :** Archive log corrompu
+**Solution :**
+```sql
+-- Skip archive log problématique (ATTENTION : perte données)
+RECOVER DATABASE UNTIL CANCEL USING BACKUP CONTROLFILE;
+-- Taper CANCEL quand bloqué
+ALTER DATABASE OPEN RESETLOGS;
+```
+
+---
+
+2. POINT-IN-TIME RECOVERY (PITR)
+=================================
+
+## Contexte
+Récupération à une date/heure spécifique pour :
+- Annuler transactions erronées (DELETE, UPDATE massif)
+- Revenir avant corruption logique
+- Récupérer avant DROP accidentel
+
+## Durée Estimée
+1 à 4 heures
+
+## Niveau de Risque
+MOYEN - Transactions après le point de récupération seront perdues
+
+---
+
+## PROCÉDURE PITR
+
+### Étape 1 : Identifier le Point de Récupération (15 minutes)
+
+```sql
+-- Trouver timestamp exact incident
+SELECT TO_CHAR(timestamp, 'YYYY-MM-DD HH24:MI:SS') as incident_time
+FROM audit_trail
+WHERE action = 'DELETE' AND object_name = 'IMPORTANT_TABLE'
+ORDER BY timestamp DESC;
+
+-- OU utiliser SCN si connu
+SELECT current_scn FROM v$database;
+```
+
+**Point de Récupération Déterminé :**
+- Timestamp : 2024-01-15 14:30:00
+- OU SCN : 1234567890
+
+---
+
+### Étape 2 : Shutdown et Restore (1-2 heures)
+
+```sql
+-- Shutdown database
+SHUTDOWN IMMEDIATE;
+
+-- Startup mount
+STARTUP MOUNT;
+
+-- RMAN Restore
+RMAN TARGET /
+
+RMAN> RUN {
+  # Définir point cible
+  SET UNTIL TIME "TO_DATE('2024-01-15 14:30:00', 'YYYY-MM-DD HH24:MI:SS')";
+  # OU
+  # SET UNTIL SCN 1234567890;
+  
+  RESTORE DATABASE;
+  RECOVER DATABASE;
+}
+```
+
+---
+
+### Étape 3 : Open avec RESETLOGS
+
+```sql
+-- Ouvrir base
+ALTER DATABASE OPEN RESETLOGS;
+
+-- Vérifier point de récupération
+SELECT TO_CHAR(resetlogs_time, 'YYYY-MM-DD HH24:MI:SS') FROM v$database;
+
+-- Vérifier données
+SELECT COUNT(*) FROM important_table;
+-- Doit correspondre à état avant incident
+```
+
+**Validation :**
+✓ Database ouverte
+✓ Données restaurées au point voulu
+✓ Transactions post-incident perdues (attendu)
+
+---
+
+### Alternative : PITR pour Tablespace Spécifique
+
+Si incident localisé à un tablespace :
+
+```sql
+-- Mettre tablespace offline
+ALTER TABLESPACE users OFFLINE IMMEDIATE;
+
+-- Restore/Recover seulement ce tablespace
+RMAN> RUN {
+  SET UNTIL TIME "TO_DATE('2024-01-15 14:30:00', 'YYYY-MM-DD HH24:MI:SS')";
+  RESTORE TABLESPACE users;
+  RECOVER TABLESPACE users;
+}
+
+-- Remettre online
+ALTER TABLESPACE users ONLINE;
+```
+
+**Avantage :** Database reste disponible pendant opération
+
+---
+
+3. RÉCUPÉRATION DE TABLE (TABLE RECOVERY)
+==========================================
+
+## Contexte
+- Table supprimée (DROP TABLE)
+- Table tronquée (TRUNCATE TABLE)
+- Données supprimées (DELETE sans WHERE)
+- Données modifiées par erreur (UPDATE incorrect)
+
+## Durée Estimée
+15 minutes à 1 heure
+
+## Niveau de Risque
+FAIBLE (si Flashback activé) à MOYEN (si RMAN Table Recovery)
+
+---
+
+## MÉTHODE 1 : FLASHBACK TABLE (Recommandé si disponible)
+
+### Prérequis
+```sql
+-- Vérifier Flashback activé
+SELECT flashback_on FROM v$database;
+-- Résultat attendu : YES
+
+-- Vérifier retention
+SELECT retention_target FROM v$flashback_database_log;
+-- Exemple : 1440 (minutes) = 24 heures
+```
+
+---
+
+### Scénario A : Récupération après DROP TABLE
+
+```sql
+-- 1. Vérifier table dans Recycle Bin
+SELECT object_name, original_name, droptime
+FROM user_recyclebin
+WHERE original_name = 'EMPLOYEES';
+
+-- 2. Flashback (undrop)
+FLASHBACK TABLE employees TO BEFORE DROP;
+
+-- 3. Vérifier
+SELECT COUNT(*) FROM employees;
+DESC employees;
+```
+
+**Durée : < 1 minute**
+
+---
+
+### Scénario B : Récupération après DELETE/UPDATE
+
+```sql
+-- 1. Identifier timestamp avant incident
+SELECT TO_CHAR(timestamp, 'YYYY-MM-DD HH24:MI:SS')
+FROM audit_trail
+WHERE table_name = 'EMPLOYEES' AND action = 'DELETE';
+
+-- 2. Flashback Table
+FLASHBACK TABLE employees TO TIMESTAMP 
+  TO_TIMESTAMP('2024-01-15 14:00:00', 'YYYY-MM-DD HH24:MI:SS');
+
+-- 3. Vérifier
+SELECT COUNT(*) FROM employees;
+```
+
+**Durée : 1-5 minutes**
+
+**Limitations :**
+- Table doit avoir ROW MOVEMENT activé
+```sql
+ALTER TABLE employees ENABLE ROW MOVEMENT;
+```
+- Pas de modifications structure (DDL) entre incident et recovery
+
+---
+
+### Scénario C : Récupération après TRUNCATE
+
+```sql
+-- Malheureusement FLASHBACK TABLE ne fonctionne pas après TRUNCATE
+-- Utiliser FLASHBACK QUERY pour récupérer données
+
+-- 1. Créer table temporaire avec données flashback
+CREATE TABLE employees_restored AS
+SELECT * FROM employees 
+AS OF TIMESTAMP TO_TIMESTAMP('2024-01-15 14:00:00', 'YYYY-MM-DD HH24:MI:SS');
+
+-- 2. Copier données
+INSERT INTO employees SELECT * FROM employees_restored;
+COMMIT;
+
+-- 3. Vérifier et nettoyer
+SELECT COUNT(*) FROM employees;
+DROP TABLE employees_restored;
+```
+
+---
+
+## MÉTHODE 2 : RMAN TABLE RECOVERY (Oracle 12c+)
+
+Si Flashback non disponible ou rétention dépassée :
+
+```sql
+RMAN TARGET /
+
+-- Récupérer table à point dans le temps
+RMAN> RECOVER TABLE hr.employees
+  UNTIL TIME "TO_DATE('2024-01-15 14:00:00','YYYY-MM-DD HH24:MI:SS')"
+  AUXILIARY DESTINATION '/tmp/oracle_recover'
+  REMAP TABLE hr.employees:employees_restored;
+
+-- Résultat : Table employees_restored créée avec données
+```
+
+**Processus RMAN :**
+1. Crée instance auxiliaire temporaire
+2. Restore/recover jusqu'au point demandé
+3. Export table avec Data Pump
+4. Import dans instance principale (nom remappé)
+
+**Durée : 30 min - 2 heures (selon taille DB)**
+
+---
+
+4. RÉCUPÉRATION DE TABLESPACE
+==============================
+
+## Contexte
+- Tablespace corrompu
+- Datafiles d'un tablespace supprimés
+- Erreurs I/O sur tablespace
+
+## Procédure
+
+```sql
+-- 1. Identifier tablespace problématique
+SELECT tablespace_name, status FROM dba_tablespaces;
+
+-- 2. Mettre offline
+ALTER TABLESPACE users OFFLINE IMMEDIATE;
+
+-- 3. Restore/Recover avec RMAN
+RMAN TARGET /
+RMAN> RESTORE TABLESPACE users;
+RMAN> RECOVER TABLESPACE users;
+
+-- 4. Remettre online
+ALTER TABLESPACE users ONLINE;
+
+-- 5. Vérifier
+SELECT file_name, status FROM dba_data_files 
+WHERE tablespace_name = 'USERS';
+```
+
+**Avantage :** Database reste accessible pendant opération
+
+---
+
+5. RÉCUPÉRATION APRÈS PERTE CONTROLFILE
+========================================
+
+## Scénario Critique
+Tous les controlfiles perdus/corrompus
+
+## Procédure
+
+```sql
+-- 1. Startup NOMOUNT
+STARTUP NOMOUNT;
+
+-- 2. Restore controlfile
+RMAN TARGET /
+RMAN> RESTORE CONTROLFILE FROM AUTOBACKUP;
+-- OU depuis emplacement connu
+RMAN> RESTORE CONTROLFILE FROM '/backup/control_latest.bkp';
+
+-- 3. Mount
+ALTER DATABASE MOUNT;
+
+-- 4. Recover
+RMAN> RECOVER DATABASE;
+
+-- 5. Open
+ALTER DATABASE OPEN RESETLOGS;
+```
+
+---
+
+6. FLASHBACK TECHNOLOGIES (RÉSUMÉ)
+===================================
+
+## FLASHBACK DATABASE
+```sql
+-- Flashback toute la DB
+FLASHBACK DATABASE TO TIMESTAMP 
+  TO_TIMESTAMP('2024-01-15 14:00:00', 'YYYY-MM-DD HH24:MI:SS');
+ALTER DATABASE OPEN RESETLOGS;
+```
+
+## FLASHBACK TABLE
+```sql
+FLASHBACK TABLE employees TO TIMESTAMP 
+  TO_TIMESTAMP('2024-01-15 14:00:00', 'YYYY-MM-DD HH24:MI:SS');
+```
+
+## FLASHBACK QUERY
+```sql
+SELECT * FROM employees 
+AS OF TIMESTAMP TO_TIMESTAMP('2024-01-15 14:00:00', 'YYYY-MM-DD HH24:MI:SS');
+```
+
+## FLASHBACK DROP (Recycle Bin)
+```sql
+FLASHBACK TABLE employees TO BEFORE DROP;
+```
+
+## FLASHBACK TRANSACTION
+```sql
+-- Annuler transaction spécifique
+SELECT xid FROM v$transaction; -- Identifier XID
+FLASHBACK TRANSACTION <xid> CASCADE;
+```
+
+---
+
+7. MATRICE DE DÉCISION RAPIDE
+==============================
+
+| Scénario | Méthode Recommandée | Downtime | Risque | Durée |
+|----------|---------------------|----------|--------|-------|
+| DROP TABLE | Flashback Drop | Non | Faible | < 1min |
+| DELETE/UPDATE | Flashback Table | Non | Faible | 1-5min |
+| TRUNCATE | Flashback Query | Non | Faible | 5-15min |
+| Corruption Tablespace | RMAN Restore TS | Partiel | Moyen | 30min-2h |
+| Crash DB | RMAN Restore DB | Oui | Élevé | 2-6h |
+| Transaction Erronée | Flashback Transaction | Non | Faible | 5-15min |
+| Corruption Logique | PITR | Oui | Moyen | 1-4h |
+
+---
+
+FIN DU DOCUMENT

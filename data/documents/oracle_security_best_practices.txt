@@ -1,0 +1,64 @@
+Oracle Database Security - Best Practices
+
+1. PRINCIPLE OF LEAST PRIVILEGE
+- Grant only necessary privileges to users
+- Avoid granting DBA role unless absolutely required
+- Use roles to manage privilege groups
+- CRITICAL: Excessive privileges allow data theft or destruction
+- Red flag: Non-admin users with DROP ANY TABLE or ALTER SYSTEM
+
+2. PASSWORD POLICIES
+- Enforce strong password profiles
+- Profile should require: minimum length 12, complexity, expiration 90 days
+- Failed login attempts should lock accounts (FAILED_LOGIN_ATTEMPTS=5)
+- PASSWORD_REUSE_TIME should be at least 365 days
+- Red flag: Default profile with no restrictions
+
+3. ACCOUNT MANAGEMENT
+- Lock or drop unused accounts immediately
+- Monitor for EXPIRED & GRACE accounts (compromisable)
+- Default accounts (SCOTT, HR, etc.) should be locked
+- Red flag: Active accounts not used in 90+ days
+
+4. AUDIT CONFIGURATION
+- Enable auditing: AUDIT_TRAIL=DB,EXTENDED or OS
+- Audit critical operations: DDL, privilege grants, failed logins
+- Monitor audit trail size and archive regularly
+- Red flag: Audit trail disabled or not monitored
+
+5. NETWORK SECURITY
+- Encrypt network traffic with Native Network Encryption
+- Use SQL*Net encryption for sensitive data transmission
+- Restrict access by IP using valid node checking
+- Red flag: Unencrypted connections to production database
+
+6. DATA ENCRYPTION
+- Use Transparent Data Encryption (TDE) for sensitive columns
+- Encrypt backups and exports
+- Red flag: Salary, credit card, or PII data unencrypted
+
+7. SEPARATION OF DUTIES
+- Different users for development, testing, production
+- No shared accounts (each person has unique username)
+- Application accounts should not have direct SQL access
+- Red flag: Single account used by multiple people
+
+8. COMMON VULNERABILITIES
+- SQL Injection: Use bind variables, never concatenate SQL strings
+- Privilege escalation: Monitor grants of WITH ADMIN OPTION
+- Backdoor accounts: Review all accounts with SYSDBA privilege
+- Data exfiltration: Audit SELECT on sensitive tables
+
+9. MONITORING RED FLAGS
+- Logins outside business hours (potential intrusion)
+- Multiple failed login attempts (brute force attack)
+- DDL operations by non-DBA users (unauthorized changes)
+- Bulk data exports (potential data theft)
+- Privilege grants to PUBLIC role (security hole)
+
+10. PROFILE CONFIGURATION
+- PASSWORD_LIFE_TIME: 90 days maximum
+- PASSWORD_GRACE_TIME: 7 days
+- FAILED_LOGIN_ATTEMPTS: 5 maximum
+- PASSWORD_LOCK_TIME: 1 day minimum
+- Sessions_per_user: Limit based on role
