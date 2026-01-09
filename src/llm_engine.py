@@ -224,6 +224,86 @@ class LLMEngine:
                 result = result.replace(placeholder, str(value))
         return result
     
+    def _parse_json_response(self, response: str) -> Dict:
+        """Parse une réponse JSON du LLM (gère les markdown fences et texte supplémentaire)"""
+        # Supprimer les markdown code fences si présents
+        response = response.strip()
+        
+        # Nettoyer la réponse
+        lines = response.split('\n')
+        cleaned_lines = []
+        
+        # Chercher le début du JSON
+        json_started = False
+        for line in lines:
+            line = line.strip()
+            
+            # Chercher { pour début JSON
+            if not json_started and '{' in line:
+                # Garder seulement à partir du {
+                line = line[line.find('{'):]
+                json_started = True
+            
+            if json_started:
+                # Arrêter à } si c'est la fin
+                if '}' in line and line.rfind('}') > line.find('{', 0 if '{' not in line else 1):
+                    # Garder seulement jusqu'au }
+                    line = line[:line.rfind('}') + 1]
+                    cleaned_lines.append(line)
+                    break
+                cleaned_lines.append(line)
+        
+        if cleaned_lines:
+            response = '\n'.join(cleaned_lines)
+        
+        # Supprimer les fences restants
+        response = response.replace('```json', '').replace('```', '')
+        
+        # Nettoyer les espaces et nouvelles lignes
+        response = response.strip()
+        
+        logger.debug(f"JSON nettoyé : {response[:300]}...")
+        
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError as e:
+            # Essayer d'extraire le JSON avec une regex
+            import re
+            logger.warning(f"⚠️  Tentative d'extraction JSON avec regex...")
+            
+            # Chercher un objet JSON dans le texte
+            json_pattern = r'\{.*\}'
+            matches = re.findall(json_pattern, response, re.DOTALL)
+            
+            if matches:
+                for match in matches:
+                    try:
+                        # Essayer de parser chaque match
+                        parsed = json.loads(match)
+                        logger.success(f"✅ JSON extrait avec regex")
+                        return parsed
+                    except:
+                        continue
+            
+            # Si toujours échec, essayer de réparer le JSON
+            logger.warning(f"⚠️  Tentative de réparation JSON...")
+            try:
+                # Réparer les JSON courants malformés
+                response = response.replace("'", '"')  # Remplace guillemets simples
+                response = re.sub(r'(\w+):', r'"\1":', response)  # Ajoute guillemets aux clés
+                response = response.replace('True', 'true').replace('False', 'false').replace('None', 'null')
+                
+                parsed = json.loads(response)
+                logger.success(f"✅ JSON réparé")
+                return parsed
+            except:
+                logger.error(f"❌ Échec parsing JSON : {e}")
+                logger.debug(f"Réponse brute complète : {response}")
+                return {
+                    "error": "Erreur parsing JSON",
+                    "raw_response": response[:500] + "..." if len(response) > 500 else response
+                }
+    
     # ========================================================================
     # MÉTHODES SPÉCIALISÉES PAR MODULE
     # ========================================================================
@@ -388,25 +468,6 @@ class LLMEngine:
         )
         
         return response
-    
-    def _parse_json_response(self, response: str) -> Dict:
-        """Parse une réponse JSON du LLM (gère les markdown fences)"""
-        # Supprimer les markdown code fences si présents
-        response = response.strip()
-        if response.startswith('```'):
-            lines = response.split('\n')
-            response = '\n'.join(lines[1:-1]) if len(lines) > 2 else response
-            response = response.replace('```json', '').replace('```', '')
-        
-        try:
-            return json.loads(response.strip())
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Erreur parsing JSON : {e}")
-            logger.debug(f"Réponse brute : {response[:200]}...")
-            return {
-                "error": "Erreur parsing JSON",
-                "raw_response": response
-            }
 
 
 def main():
