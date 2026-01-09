@@ -1,0 +1,21 @@
+COMPRESSION ORACLE
+==================
+Types:
+- Basic: Bon ratio, CPU moyen
+- OLTP: Optimisé DML
+- Query Low/High: Data warehouse
+
+Activer sur table:
+ALTER TABLE employees COMPRESS FOR OLTP;
+
+Activer sur backup RMAN:
+BACKUP AS COMPRESSED BACKUPSET DATABASE;
+
+Ratio typique: 2:1 à 5:1
+Gain stockage vs CPU overhead
+
+Vérifier compression:
+SELECT table_name, compression, compress_for
+FROM dba_tables
+WHERE owner = 'HR';
+EOF

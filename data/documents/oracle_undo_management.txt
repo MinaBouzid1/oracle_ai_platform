@@ -1,0 +1,17 @@
+GESTION UNDO ORACLE
+===================
+UNDO = données avant modification (rollback, read consistency)
+
+Taille UNDO tablespace:
+SELECT tablespace_name, SUM(bytes)/1024/1024/1024 AS size_gb
+FROM dba_data_files
+WHERE tablespace_name LIKE '%UNDO%'
+GROUP BY tablespace_name;
+
+Problèmes courants:
+- ORA-01555: Snapshot too old → Augmenter UNDO_RETENTION
+- UNDO tablespace plein → Ajouter datafile
+
+ALTER SYSTEM SET undo_retention = 3600;  -- 1 heure
+EOF
+

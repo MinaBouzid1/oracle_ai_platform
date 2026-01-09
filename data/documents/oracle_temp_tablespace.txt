@@ -1,0 +1,20 @@
+TEMP TABLESPACE ORACLE
+======================
+Utilisé pour:
+- Tris (ORDER BY, GROUP BY)
+- Joins (HASH JOIN, SORT MERGE)
+- CREATE INDEX
+- Requêtes analytiques (RANK, ROW_NUMBER)
+
+Monitoring:
+SELECT tablespace_name, SUM(bytes_used)/1024/1024 AS mb_used
+FROM v$temp_extent_pool
+GROUP BY tablespace_name;
+
+Si plein:
+- Optimiser requêtes (réduire tris)
+- Augmenter PGA_AGGREGATE_TARGET
+- Étendre TEMP tablespace
+
+ALTER TABLESPACE temp ADD TEMPFILE '/u01/data/temp02.dbf' SIZE 2G;
+EOF

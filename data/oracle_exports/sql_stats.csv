@@ -1,0 +1,51 @@
+SQL_ID,SQL_TEXT,EXECUTIONS,ELAPSED_TIME,CPU_TIME,BUFFER_GETS,DISK_READS,ROWS_PROCESSED
+sql_0000,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",926,2866583,2043519,35756,27095,4408
+sql_0001,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,680,4458641,2080524,9296,10928,2305
+sql_0002,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",896,3558287,1901106,15038,40,9095
+sql_0003,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,311,2133697,1711106,50398,13807,8278
+sql_0004,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 839,62,1859734,290847,35177,16582,1950
+sql_0005,SELECT * FROM employees WHERE department_id = 3,85,4044115,1335471,73191,8605,1759
+sql_0006,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 220,241,413247,2487442,44436,7942,7878
+sql_0007,SELECT * FROM employees WHERE department_id = 9,220,3326592,1014188,57592,35996,5440
+sql_0008,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,718,1625535,647473,23017,30959,377
+sql_0009,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",16,3314623,1418180,24995,24591,3571
+sql_0010,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,990,3032844,1575983,1912,836,5904
+sql_0011,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,779,530231,1340515,41200,8375,4066
+sql_0012,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,945,2282590,1475315,84619,42133,5048
+sql_0013,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 328,780,616505,1479264,19480,22762,6777
+sql_0014,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 339,708,379960,2598399,54490,44584,5052
+sql_0015,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",465,1473804,912043,46799,42191,3176
+sql_0016,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",852,2680369,1358554,17471,42503,4360
+sql_0017,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,464,3963226,1830141,98134,3307,9809
+sql_0018,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,750,3344448,2374858,45689,37093,7573
+sql_0019,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,481,3105696,2817392,58314,32821,6668
+sql_0020,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 721,698,954548,1915790,22189,2987,93
+sql_0021,SELECT * FROM employees WHERE department_id = 7,793,145747,2931059,23134,10055,4984
+sql_0022,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,130,1218497,567693,40934,22061,8551
+sql_0023,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 483,553,4608009,518723,69962,7421,7581
+sql_0024,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,717,1887569,2979588,61158,23231,9824
+sql_0025,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,972,3586954,457867,6670,16982,4985
+sql_0026,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",309,702557,1425237,21560,36255,3563
+sql_0027,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 764,185,4605559,2172912,19968,14410,3922
+sql_0028,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,222,4119006,138645,34026,33245,4978
+sql_0029,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,97,4957522,140980,9807,40070,3336
+sql_0030,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",962,2297309,711639,83377,41879,1962
+sql_0031,SELECT * FROM employees WHERE department_id = 1,664,4392922,543031,71422,24733,7519
+sql_0032,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,350,1800701,2091822,88919,24274,5235
+sql_0033,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",264,4978757,2846449,36817,23389,6335
+sql_0034,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",874,2577281,1826680,27075,14363,5903
+sql_0035,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,785,1910058,1958257,93320,19745,6183
+sql_0036,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,652,828563,1466036,5248,46760,184
+sql_0037,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 298,464,1339837,679958,43165,2601,2740
+sql_0038,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 534,872,2531052,1015420,50038,16040,384
+sql_0039,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 766,923,4291945,2766578,18595,49945,5926
+sql_0040,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",368,1054169,2116062,18259,46195,8907
+sql_0041,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 515,921,1174307,933255,83408,32669,4909
+sql_0042,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,645,598379,1641385,74429,8670,2457
+sql_0043,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,102,4710965,150979,74810,14858,9278
+sql_0044,SELECT * FROM employees WHERE department_id = 10,648,4139373,2742395,96397,48551,8993
+sql_0045,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 426,837,1507311,1673085,58207,29212,879
+sql_0046,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",338,4788741,1106743,57967,48739,3129
+sql_0047,SELECT * FROM employees WHERE department_id = 1,851,3240278,274875,70058,16052,7955
+sql_0048,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 943,943,895310,2709276,51452,5039,9367
+sql_0049,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,600,566311,1393829,94236,45634,9419

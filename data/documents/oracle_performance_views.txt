@@ -1,0 +1,54 @@
+VUES DE PERFORMANCE ORACLE (V$)
+================================
+
+1. REQUÊTES ACTIVES
+
+V$SESSION: Sessions actives
+SELECT sid, serial#, username, status, sql_id
+FROM v$session
+WHERE status = 'ACTIVE';
+
+V$SQL: Requêtes en cache
+SELECT sql_id, sql_text, executions, elapsed_time
+FROM v$sql
+WHERE executions > 100
+ORDER BY elapsed_time DESC;
+
+V$SQL_PLAN: Plans d'exécution
+SELECT operation, options, object_name, cost
+FROM v$sql_plan
+WHERE sql_id = 'abc123xyz';
+
+2. ATTENTES ET BLOCAGES
+
+V$SESSION_WAIT: Attentes en cours
+SELECT sid, event, wait_time, seconds_in_wait
+FROM v$session_wait
+WHERE wait_time > 0;
+
+V$LOCK: Verrous
+SELECT l.sid, l.type, l.id1, s.username
+FROM v$lock l JOIN v$session s ON l.sid = s.sid
+WHERE l.block = 1;  -- Sessions bloquantes
+
+3. MÉTRIQUES SYSTÈME
+
+V$SYSMETRIC: Métriques système temps réel
+SELECT metric_name, value, metric_unit
+FROM v$sysmetric
+WHERE group_id = 2;  -- 60 secondes
+
+V$SYSTEM_EVENT: Événements d'attente
+SELECT event, total_waits, time_waited, average_wait
+FROM v$system_event
+ORDER BY time_waited DESC;
+
+4. REQUÊTES LENTES TOP-N
+
+SELECT sql_id, elapsed_time/executions AS avg_time, 
+       buffer_gets, disk_reads
+FROM v$sqlstats
+WHERE executions > 10
+ORDER BY avg_time DESC
+FETCH FIRST 10 ROWS ONLY;
+EOF

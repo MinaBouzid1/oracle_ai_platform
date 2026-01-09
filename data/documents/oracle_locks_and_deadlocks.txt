@@ -1,0 +1,21 @@
+LOCKS ET DEADLOCKS ORACLE
+==========================
+Identifier sessions bloquantes:
+SELECT blocking_session, sid, serial#, wait_class, seconds_in_wait
+FROM v$session
+WHERE blocking_session IS NOT NULL;
+
+Tuer session bloquante:
+ALTER SYSTEM KILL SESSION 'sid,serial#' IMMEDIATE;
+
+Deadlock: Deux sessions attendent mutuellement
+Solution:
+- Ordre cohérent d'accès tables
+- COMMIT fréquent
+- Réessayer transaction
+
+Prévention:
+- Transactions courtes
+- Indexer FK (évite locks excessifs)
+- NOWAIT dans SELECT FOR UPDATE
+EOF

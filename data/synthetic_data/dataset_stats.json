@@ -1,0 +1,13 @@
+{
+  "total_logs": 70,
+  "normal_logs": 50,
+  "suspicious_logs": 20,
+  "anomaly_types": {
+    "privilege_escalation": 4,
+    "data_exfiltration": 4,
+    "off_hours_access": 4,
+    "sql_injection": 4,
+    "brute_force": 4
+  },
+  "generated_at": "2026-01-09T22:49:25.907440"
+}

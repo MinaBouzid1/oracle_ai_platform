@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-01-09T21:11:44.847699",
+  "audits": {
+    "users": {
+      "error": "Erreur parsing JSON",
+      "raw_response": "{\n\"score_securite\": 45,\n\"niveau_risque\": \"faible\",\n\"risques\": [\n{\n\"titre\": \"Comptes utilisateurs inactifs et expirés\",\n\"severite\": \"faible\",\n\"description\": \"Les comptes USER_0, USER_2, USER_3 et USER_9 sont en état d\"expiration. Ces comptes peuvent être laissés ouverts si personne ne les utilise.\",\n\"impact\": \"Si ces comptes étaient utilisés par un attaquant malveillant, ils pourraient être exploités pour accéder à des données sensibles.\",\n\"recommandation\": \"Activer ou expirer immédiatement ces c..."
+    },
+    "privileges": {
+      "error": "Erreur parsing JSON",
+      "raw_response": "{\n\"privileges\": [\n{\n\"GRANTEE\": \"USER_0\",\n\"PRIVILEGE\": \"DROP ANY TABLE\",\n\"ADMIN_OPTION\": \"YES\"\n}"
+    },
+    "profiles": {
+      "error": "Erreur parsing JSON",
+      "raw_response": "{\n\"profile_data\": {\n\"FAILED_LOGIN_ATTEMPTS\": 5,\n\"PASSWORD_LIFE_TIME\": 90,\n\"PASSWORD_LOCK_TIME\": 1,\n\"PASSWORD_REUSE_TIME\": 365,\n\"PASSWORD_VERIFY_FUNCTION\": \"verify_function_11g\"\n}"
+    }
+  },
+  "score_global": 0,
+  "niveau_risque_global": "inconnu",
+  "resume": {
+    "total_risques": 0,
+    "risques_critiques": 0,
+    "risques_hauts": 0,
+    "risques_moyens": 0,
+    "top_3_risques": []
+  }
+}

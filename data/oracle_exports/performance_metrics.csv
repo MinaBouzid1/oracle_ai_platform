@@ -1,0 +1,5 @@
+METRIC_NAME,VALUE,UNIT
+CPU Usage,45.2,%
+Memory Usage,67.8,%
+IO Wait,12.3,%
+Active Sessions,23.0,count

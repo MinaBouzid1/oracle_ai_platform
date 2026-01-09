@@ -1,0 +1,20 @@
+STATISTIQUES ORACLE
+===================
+Crucial pour optimizer:
+EXEC DBMS_STATS.GATHER_TABLE_STATS('HR', 'EMPLOYEES');
+EXEC DBMS_STATS.GATHER_SCHEMA_STATS('HR');
+EXEC DBMS_STATS.GATHER_DATABASE_STATS;
+
+Fréquence:
+- Tables volatiles: Quotidien
+- Tables stables: Hebdomadaire
+- Après chargements massifs: Immédiat
+
+Vérifier fraîcheur:
+SELECT table_name, last_analyzed, num_rows
+FROM dba_tables
+WHERE owner = 'HR'
+ORDER BY last_analyzed;
+
+Statistiques obsolètes = plans d'exécution suboptimaux
+EOF

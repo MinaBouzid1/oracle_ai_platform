@@ -1,0 +1,38 @@
+GESTION DES TABLESPACES ORACLE
+===============================
+
+1. SURVEILLANCE ESPACE
+
+-- Espace utilisé par tablespace
+SELECT tablespace_name, 
+       ROUND(SUM(bytes)/1024/1024/1024, 2) AS size_gb,
+       ROUND(SUM(bytes)/1024/1024/1024 * 100 / 
+         (SELECT SUM(bytes)/1024/1024/1024 FROM dba_data_files), 2) AS pct
+FROM dba_data_files
+GROUP BY tablespace_name;
+
+-- Espace libre
+SELECT tablespace_name, 
+       ROUND(SUM(bytes)/1024/1024/1024, 2) AS free_gb
+FROM dba_free_space
+GROUP BY tablespace_name;
+
+2. ALERTES
+
+Seuils critiques:
+- Warning: 80% plein
+- Critical: 90% plein
+- Emergency: 95% plein
+
+3. ACTIONS CORRECTIVES
+
+Étendre datafile:
+ALTER DATABASE DATAFILE '/u01/data/users01.dbf' RESIZE 2G;
+
+Ajouter datafile:
+ALTER TABLESPACE users 
+ADD DATAFILE '/u01/data/users02.dbf' SIZE 1G AUTOEXTEND ON;
+
+Activer autoextend:
+ALTER DATABASE DATAFILE '/u01/data/users01.dbf' AUTOEXTEND ON MAXSIZE 10G;
+EOF

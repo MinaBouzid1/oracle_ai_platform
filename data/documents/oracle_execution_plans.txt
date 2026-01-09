@@ -1,0 +1,22 @@
+LECTURE DES PLANS D'EXÉCUTION
+==============================
+EXPLAIN PLAN FOR <requête>;
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+Opérations clés:
+- TABLE ACCESS FULL: Scan complet (lent si grosse table)
+- INDEX RANGE SCAN: Bon, utilise index
+- INDEX UNIQUE SCAN: Optimal, clé primaire
+- HASH JOIN: Normal pour gros datasets
+- NESTED LOOPS: Bon pour petits datasets
+
+Métriques importantes:
+- Cost: Estimation optimizer
+- Cardinality: Nombre lignes estimé
+- Bytes: Volume données
+
+Red flags:
+- Cost > 10,000
+- TABLE ACCESS FULL sur millions lignes
+- Cardinality très différente de réalité (stats obsolètes)
+EOF

@@ -1,0 +1,44 @@
+ORACLE SQL HINTS - GUIDE D'OPTIMISATION
+========================================
+
+1. HINTS COURANTS
+
+INDEX Hints:
+/*+ INDEX(table_name index_name) */ - Force utilisation index
+/*+ NO_INDEX(table_name index_name) */ - Ignore index
+/*+ INDEX_FFS(table_name index_name) */ - Fast Full Scan
+
+JOIN Hints:
+/*+ USE_NL(table1 table2) */ - Nested Loop Join
+/*+ USE_HASH(table1 table2) */ - Hash Join
+/*+ USE_MERGE(table1 table2) */ - Sort Merge Join
+
+Parallélisme:
+/*+ PARALLEL(table_name, 4) */ - Exécution parallèle 4 workers
+/*+ NO_PARALLEL(table_name) */ - Désactive parallélisme
+
+Autres:
+/*+ FULL(table_name) */ - Force Full Table Scan
+/*+ FIRST_ROWS(n) */ - Optimise pour premières n lignes
+/*+ ALL_ROWS */ - Optimise pour toutes les lignes
+
+2. EXEMPLES PRATIQUES
+
+-- Forcer Nested Loop pour petite table
+SELECT /*+ USE_NL(e d) */ e.name, d.dept_name
+FROM employees e JOIN departments d ON e.dept_id = d.dept_id
+WHERE d.dept_id = 10;
+
+-- Paralléliser requête lourde
+SELECT /*+ PARALLEL(orders, 8) */ COUNT(*), SUM(amount)
+FROM orders
+WHERE order_date > SYSDATE - 365;
+
+3. RÈGLES D'OR
+
+- Hints sont une EXCEPTION, pas la règle
+- Toujours laisser optimizer décider d'abord
+- Utiliser hints seulement si plan suboptimal
+- Documenter POURQUOI le hint est nécessaire
+- Retester régulièrement (nouvelles versions Oracle)
+EOF

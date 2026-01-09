@@ -1,0 +1,21 @@
+CONFIGURATION AUDIT ORACLE
+===========================
+Activer auditing:
+AUDIT_TRAIL = DB, EXTENDED (init.ora)
+
+Auditer actions critiques:
+AUDIT ALL ON hr.employees BY ACCESS;
+AUDIT SELECT TABLE BY hr BY ACCESS;
+AUDIT GRANT ANY PRIVILEGE BY ACCESS;
+AUDIT DROP ANY TABLE BY ACCESS;
+
+Consulter logs:
+SELECT username, action_name, obj_name, timestamp
+FROM dba_audit_trail
+WHERE timestamp > SYSDATE - 7
+ORDER BY timestamp DESC;
+
+Purger logs:
+DELETE FROM sys.aud$ WHERE timestamp < SYSDATE - 365;
+COMMIT;
+EOF

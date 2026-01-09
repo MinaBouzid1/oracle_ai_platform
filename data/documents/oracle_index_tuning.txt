@@ -1,0 +1,409 @@
+ORACLE INDEX TUNING - GUIDE COMPLET
+====================================
+
+1. TYPES D'INDEX ORACLE
+------------------------
+
+### B-TREE INDEX (Par défaut)
+- Structure arborescente équilibrée
+- Idéal pour colonnes haute cardinalité (valeurs uniques)
+- Support recherches : =, <, >, BETWEEN, LIKE 'ABC%'
+- Maintient ordre trié
+
+Exemple :
+CREATE INDEX idx_emp_email ON employees(email);
+-- Email est unique → haute cardinalité → B-tree optimal
+
+Quand utiliser :
+- Colonnes ID, email, numéro de téléphone
+- Dates (HIRE_DATE, ORDER_DATE)
+- Colonnes dans WHERE, JOIN, ORDER BY
+
+### BITMAP INDEX
+- Stocke valeurs comme bitmaps
+- Idéal pour colonnes basse cardinalité (peu de valeurs distinctes)
+- Excellent pour requêtes avec multiples conditions (AND/OR)
+- Performance supérieure en lecture, lent en écriture
+
+Exemple :
+CREATE BITMAP INDEX idx_emp_gender ON employees(gender);
+-- Gender a seulement 2-3 valeurs → bitmap optimal
+
+Quand utiliser :
+- Statut (ACTIF/INACTIF)
+- Sexe (M/F/O)
+- Type de produit (10-50 catégories)
+- Data warehouse (peu de mises à jour)
+
+⚠️ ATTENTION : Éviter en OLTP (nombreuses écritures concurrentes)
+
+### FUNCTION-BASED INDEX
+- Index sur expression ou fonction
+- Permet optimisation de requêtes avec fonctions
+
+Exemple :
+CREATE INDEX idx_emp_upper_name ON employees(UPPER(last_name));
+
+-- Optimise cette requête :
+SELECT * FROM employees WHERE UPPER(last_name) = 'SMITH';
+
+Cas d'usage :
+- UPPER(), LOWER() sur colonnes texte
+- TO_CHAR() sur dates
+- Calculs mathématiques (salary * 1.1)
+
+### COMPOSITE INDEX (Multi-colonnes)
+- Index sur plusieurs colonnes
+- Ordre des colonnes CRITIQUE
+
+Exemple :
+CREATE INDEX idx_emp_dept_salary ON employees(department_id, salary);
+
+-- Optimise ces requêtes :
+SELECT * FROM employees WHERE department_id = 10 AND salary > 50000;
+SELECT * FROM employees WHERE department_id = 10; -- Utilise index
+
+-- N'optimise PAS :
+SELECT * FROM employees WHERE salary > 50000; -- Ignore index (colonne 2)
+
+Règle d'ordre : Colonne la plus sélective EN PREMIER
+- Sélectivité = COUNT(DISTINCT column) / COUNT(*)
+- Plus proche de 1 = plus sélective
+
+### UNIQUE INDEX
+- Garantit unicité des valeurs
+- Créé automatiquement pour PRIMARY KEY et UNIQUE constraints
+
+Exemple :
+CREATE UNIQUE INDEX idx_emp_email_unique ON employees(email);
+
+### INVISIBLE INDEX (12c+)
+- Index existe mais optimizer l'ignore
+- Test impact avant suppression
+
+Exemple :
+ALTER INDEX idx_emp_name INVISIBLE;
+-- Tester performance application
+ALTER INDEX idx_emp_name VISIBLE;
+
+---
+
+2. QUAND CRÉER UN INDEX
+------------------------
+
+### Indicateurs qu'un index est nécessaire :
+
+✓ Colonne fréquemment dans WHERE clause
+✓ Colonne utilisée pour JOIN
+✓ Colonne dans ORDER BY ou GROUP BY
+✓ Requêtes lentes avec FULL TABLE SCAN
+✓ Sélectivité élevée (> 5% lignes retournées)
+
+### Colonnes à TOUJOURS indexer :
+
+1. PRIMARY KEY (automatique)
+2. FOREIGN KEY (manuel, souvent oublié !)
+3. Colonnes de dates fréquentes (ORDER_DATE, CREATED_DATE)
+4. Colonnes de statut si sélectives
+
+Exemple oublié fréquent :
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+-- customer_id est FK vers customers → index obligatoire pour performance JOIN
+
+---
+
+3. QUAND NE PAS CRÉER D'INDEX
+------------------------------
+
+❌ Tables très petites (< 10,000 lignes)
+   → Full scan plus rapide que index access
+
+❌ Colonnes faible sélectivité sans bitmap
+   Exemple : colonne ACTIF (2 valeurs) avec B-tree index
+
+❌ Colonnes modifiées fréquemment
+   → Overhead maintenance index > gain lecture
+
+❌ Trop d'index sur même table
+   → Ralentit INSERT/UPDATE/DELETE
+   Limite : 5-7 index maximum par table
+
+❌ Colonnes avec beaucoup de NULL
+   → Index ne stocke pas NULL (sauf composite avec autre colonne)
+
+---
+
+4. ANALYSE D'UTILISATION DES INDEX
+-----------------------------------
+
+### Vérifier si index est utilisé :
+
+-- Voir plan d'exécution
+EXPLAIN PLAN FOR
+SELECT * FROM employees WHERE department_id = 10;
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+-- Chercher : INDEX RANGE SCAN ou INDEX UNIQUE SCAN
+
+### Index non-utilisés (candidats à suppression) :
+
+SELECT index_name, table_name
+FROM dba_indexes
+WHERE owner = 'HR'
+  AND index_name NOT IN (
+    SELECT DISTINCT object_name
+    FROM v$sql_plan
+    WHERE object_type LIKE 'INDEX%'
+  );
+
+### Statistiques d'utilisation (11g+) :
+
+-- Activer monitoring
+ALTER INDEX idx_emp_name MONITORING USAGE;
+
+-- Après quelques jours/semaines
+SELECT index_name, table_name, monitoring, used
+FROM v$object_usage
+WHERE index_name = 'IDX_EMP_NAME';
+
+-- Si USED = NO → index inutile
+
+---
+
+5. INDEX ET PERFORMANCE DES REQUÊTES
+-------------------------------------
+
+### Buffer Gets par Row (métrique clé)
+
+Idéal : < 10 buffer gets par row
+Acceptable : 10-100
+Problème : > 100
+
+Calcul :
+Buffer Gets / Rows Processed
+
+Exemple :
+BUFFER_GETS = 50,000
+ROWS_PROCESSED = 100
+Ratio = 500 → TRÈS MAUVAIS → index manquant
+
+### Coût d'accès :
+
+Full Table Scan : O(n) où n = nombre de lignes
+Index Scan : O(log n) + accès lignes
+
+Pour 1 million de lignes :
+- Full scan : 1,000,000 blocks
+- Index scan : ~20 blocks (index) + X blocks (lignes)
+
+Si X < 980,000 → index plus rapide
+Si X > 980,000 → full scan plus rapide
+
+---
+
+6. MAINTENANCE DES INDEX
+-------------------------
+
+### Rebuild vs Coalesce
+
+REBUILD : Reconstruit index complètement
+ALTER INDEX idx_emp_name REBUILD ONLINE;
+
+Quand :
+- Fragmentation > 30%
+- Après grosses suppressions
+- Changer tablespace
+
+COALESCE : Compacte index sans reconstruction
+ALTER INDEX idx_emp_name COALESCE;
+
+Quand :
+- Fragmentation 10-30%
+- Plus rapide que rebuild
+- Index disponible pendant opération
+
+### Détecter fragmentation :
+
+ANALYZE INDEX idx_emp_name VALIDATE STRUCTURE;
+
+SELECT name, del_lf_rows, lf_rows, 
+       (del_lf_rows / lf_rows) * 100 AS fragmentation_pct
+FROM index_stats
+WHERE name = 'IDX_EMP_NAME';
+
+-- Si fragmentation > 30% → REBUILD
+
+### Gather Statistics (CRUCIAL)
+
+EXEC DBMS_STATS.GATHER_INDEX_STATS('HR', 'IDX_EMP_NAME');
+
+Fréquence :
+- Tables volatiles : Quotidien
+- Tables stables : Hebdomadaire
+- Data warehouse : Après chargements
+
+---
+
+7. PATTERNS D'OPTIMISATION PAR INDEX
+-------------------------------------
+
+### Pattern 1 : Éviter fonction sur colonne indexée
+
+❌ MAUVAIS (désactive index) :
+SELECT * FROM employees WHERE UPPER(last_name) = 'SMITH';
+
+✅ BON (utilise index) :
+-- Créer function-based index
+CREATE INDEX idx_emp_upper_name ON employees(UPPER(last_name));
+-- Ou normaliser données en uppercase lors INSERT
+
+### Pattern 2 : Leading wildcard
+
+❌ MAUVAIS (full scan) :
+SELECT * FROM employees WHERE last_name LIKE '%SMITH';
+
+✅ BON (utilise index) :
+SELECT * FROM employees WHERE last_name LIKE 'SMITH%';
+
+### Pattern 3 : OR vs UNION
+
+❌ LENT (peut ignorer index) :
+SELECT * FROM employees 
+WHERE department_id = 10 OR department_id = 20;
+
+✅ RAPIDE (utilise index 2 fois) :
+SELECT * FROM employees WHERE department_id = 10
+UNION ALL
+SELECT * FROM employees WHERE department_id = 20;
+
+### Pattern 4 : IS NULL sur colonne indexée
+
+❌ MAUVAIS (index ignore NULL) :
+SELECT * FROM employees WHERE manager_id IS NULL;
+
+✅ BON (créer index composite) :
+CREATE INDEX idx_emp_mgr ON employees(manager_id, employee_id);
+-- Maintenant IS NULL utilisera index
+
+### Pattern 5 : Conversion implicite de type
+
+❌ MAUVAIS (désactive index) :
+-- employee_id est NUMBER
+SELECT * FROM employees WHERE employee_id = '100'; -- String
+
+✅ BON :
+SELECT * FROM employees WHERE employee_id = 100; -- Number
+
+---
+
+8. INDEX ET HINTS
+-----------------
+
+### Forcer utilisation d'index :
+
+SELECT /*+ INDEX(employees idx_emp_dept) */
+  employee_id, last_name
+FROM employees
+WHERE department_id = 10;
+
+### Forcer full scan (parfois optimal) :
+
+SELECT /*+ FULL(employees) */
+  employee_id, last_name
+FROM employees
+WHERE department_id = 10;
+
+### Index pour JOIN :
+
+SELECT /*+ USE_NL(e d) INDEX(e idx_emp_dept) */
+  e.employee_id, d.department_name
+FROM employees e
+JOIN departments d ON e.department_id = d.department_id;
+
+---
+
+9. INDEX INVISIBLE (TEST)
+--------------------------
+
+Tester impact AVANT suppression :
+
+-- 1. Rendre invisible
+ALTER INDEX idx_emp_dept INVISIBLE;
+
+-- 2. Tester application (monitoring performance)
+
+-- 3. Vérifier plans d'exécution
+EXPLAIN PLAN FOR ...
+
+-- 4. Décision :
+-- Si OK → DROP INDEX
+-- Si lent → ALTER INDEX ... VISIBLE
+
+---
+
+10. CHECKLIST CRÉATION INDEX
+-----------------------------
+
+Avant de créer un index, vérifier :
+
+□ Colonne dans WHERE / JOIN / ORDER BY fréquent
+□ Sélectivité > 5% (ou bitmap si < 5%)
+□ Table > 10,000 lignes
+□ Index similaire n'existe pas déjà
+□ Nombre d'index sur table < 7
+□ Statistiques à jour
+□ Plan d'exécution confirme utilisation
+□ Test performance avant/après
+
+Après création :
+
+□ GATHER_INDEX_STATS
+□ EXPLAIN PLAN vérifie utilisation
+□ Monitoring activé (MONITORING USAGE)
+□ Documentation mise à jour
+
+---
+
+11. EXEMPLES RÉELS
+-------------------
+
+### Exemple 1 : Requête lente JOIN
+
+PROBLÈME :
+SELECT o.order_id, c.customer_name
+FROM orders o
+JOIN customers c ON o.customer_id = c.customer_id
+WHERE o.order_date > SYSDATE - 30;
+
+-- ELAPSED_TIME : 15 secondes
+-- BUFFER_GETS : 500,000
+
+DIAGNOSTIC :
+- Full scan sur orders (2M lignes)
+- Nested loop JOIN sans index sur customer_id
+
+SOLUTION :
+CREATE INDEX idx_orders_date ON orders(order_date);
+CREATE INDEX idx_orders_customer ON orders(customer_id);
+
+-- NOUVEAU ELAPSED_TIME : 0.8 secondes
+-- GAIN : 94%
+
+### Exemple 2 : ORDER BY lent
+
+PROBLÈME :
+SELECT * FROM employees
+ORDER BY hire_date DESC
+FETCH FIRST 10 ROWS ONLY;
+
+-- Tri en mémoire (SORT) → lent si grosse table
+
+SOLUTION :
+CREATE INDEX idx_emp_hire_desc ON employees(hire_date DESC);
+
+-- Index maintient ordre → pas de tri nécessaire
+
+---
+
+FIN DU DOCUMENT

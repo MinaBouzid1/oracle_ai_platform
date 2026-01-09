@@ -1,0 +1,40 @@
+OPTIMISATION DES JOINTURES ORACLE
+==================================
+
+1. TYPES DE JOINS
+
+NESTED LOOPS:
+- Petit dataset + index sur colonne join
+- Complexité: O(n*m)
+- Mémoire: Faible
+
+HASH JOIN:
+- Gros datasets sans index
+- Complexité: O(n+m)
+- Mémoire: Élevée (hash table)
+
+SORT MERGE:
+- Datasets triés ou pas d'index
+- Complexité: O(n log n + m log m)
+
+2. ANTI-PATTERNS
+
+❌ Cartesian Product (pas de condition JOIN):
+SELECT * FROM t1, t2;  -- Éviter !
+
+❌ Join sur colonnes non-indexées:
+FROM orders o JOIN customers c ON o.customer_name = c.name
+-- Créer index sur customer_name
+
+❌ Join avec fonctions:
+FROM emp e JOIN dept d ON UPPER(e.dept_code) = d.code
+-- Créer function-based index
+
+3. OPTIMISATIONS
+
+✓ Index sur colonnes de jointure
+✓ Statistiques à jour
+✓ Petite table en premier (driving table)
+✓ Filtrer AVANT join (WHERE)
+✓ Éviter OR dans conditions JOIN
+EOF
