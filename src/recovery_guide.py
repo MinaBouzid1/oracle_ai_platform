@@ -1,11 +1,11 @@
 """
-Module 7 : Backup Recommender
-Recommandation intelligente de stratégies de sauvegarde Oracle
+Module 8 : Recovery Guide
+Guide interactif de restauration et récupération Oracle
 """
 
 import json
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 from loguru import logger
 import sys
 import os
@@ -17,406 +17,394 @@ logger.remove()
 logger.add(sys.stdout, format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | {message}")
 
 
-class BackupRecommender:
-    """Recommandateur de stratégies de sauvegarde Oracle"""
+class RecoveryGuide:
+    """Guide de récupération Oracle assisté par IA"""
     
     def __init__(self):
         self.llm = LLMEngine()
         self.rag = OracleRAGSystem()
-        self.recommendations = {}
+        self.current_playbook = None
         
-        # Templates de stratégies pré-définies
-        self.strategy_templates = {
-            'critical_24x7': {
-                'description': 'Mission critique 24/7',
-                'rpo_max': '15 minutes',
-                'rto_max': '1 heure',
-                'backup_types': ['archive_logs', 'incremental', 'complete']
+        # Scénarios supportés
+        self.scenarios = {
+            '1': {
+                'name': 'complete_restore',
+                'title': 'Restauration complète après crash',
+                'description': 'Base de données complètement indisponible, nécessite restauration totale'
             },
-            'production_business_hours': {
-                'description': 'Production heures ouvrables',
-                'rpo_max': '4 heures',
-                'rto_max': '4 heures',
-                'backup_types': ['incremental', 'complete']
+            '2': {
+                'name': 'point_in_time',
+                'title': 'Récupération point-in-time (PITR)',
+                'description': 'Récupération à une date/heure spécifique'
             },
-            'development': {
-                'description': 'Développement/Test',
-                'rpo_max': '24 heures',
-                'rto_max': '8 heures',
-                'backup_types': ['complete']
+            '3': {
+                'name': 'table_recovery',
+                'title': 'Récupération de table',
+                'description': 'Récupération d\'une table supprimée ou corrompue'
+            },
+            '4': {
+                'name': 'tablespace_recovery',
+                'title': 'Récupération de tablespace',
+                'description': 'Récupération d\'un tablespace spécifique'
             }
         }
         
-        logger.info("💾 Initialisation du Backup Recommender")
+        logger.info("🔧 Initialisation du Recovery Guide")
     
-    def recommend_strategy(
-        self,
-        rpo: str,
-        rto: str,
-        db_size: str,
-        criticality: str,
-        budget: str,
-        transaction_volume: str = "moyen"
-    ) -> Dict:
+    def start_recovery_wizard(self) -> Dict:
+        """Lance l'assistant de récupération interactif"""
+        print("\n" + "="*60)
+        print("🚨 ASSISTANT DE RÉCUPÉRATION ORACLE")
+        print("="*60)
+        
+        print("\n⚠️  Choisissez votre scénario de récupération :\n")
+        
+        for key, scenario in self.scenarios.items():
+            print(f"   {key}) {scenario['title']}")
+            print(f"      {scenario['description']}\n")
+        
+        choice = input("Votre choix (1-4) : ").strip()
+        
+        if choice not in self.scenarios:
+            logger.error("❌ Choix invalide")
+            return {}
+        
+        scenario = self.scenarios[choice]
+        logger.info(f"\n📋 Scénario sélectionné : {scenario['title']}")
+        
+        # Collecter les informations selon le scénario
+        if scenario['name'] == 'complete_restore':
+            details = self._collect_complete_restore_info()
+        elif scenario['name'] == 'point_in_time':
+            details = self._collect_pitr_info()
+        elif scenario['name'] == 'table_recovery':
+            details = self._collect_table_recovery_info()
+        elif scenario['name'] == 'tablespace_recovery':
+            details = self._collect_tablespace_recovery_info()
+        else:
+            details = {}
+        
+        # Générer le playbook
+        print("\n⏳ Génération du playbook de récupération...\n")
+        playbook = self.generate_playbook(scenario['name'], details)
+        
+        return playbook
+    
+    def _collect_complete_restore_info(self) -> Dict:
+        """Collecte les infos pour restauration complète"""
+        print("\n📝 Informations nécessaires :\n")
+        
+        has_rman = input("1. Avez-vous des backups RMAN ? (oui/non) : ").strip().lower()
+        has_archive = input("2. Avez-vous les archive logs ? (oui/non) : ").strip().lower()
+        last_backup = input("3. Date du dernier backup (ex: 2024-01-15) : ").strip()
+        target_scn = input("4. SCN ou timestamp cible (laisser vide pour latest) : ").strip() or "latest"
+        
+        return {
+            'has_rman_backups': 'oui' in has_rman,
+            'has_archive_logs': 'oui' in has_archive,
+            'last_backup_date': last_backup,
+            'target': target_scn,
+            'scenario_type': 'crash_recovery'
+        }
+    
+    def _collect_pitr_info(self) -> Dict:
+        """Collecte les infos pour Point-In-Time Recovery"""
+        print("\n📝 Informations nécessaires :\n")
+        
+        target_time = input("1. Date/heure cible (ex: 2024-01-15 14:30:00) : ").strip()
+        tablespaces = input("2. Tablespaces affectés (séparés par virgule, ou 'all') : ").strip()
+        has_archive = input("3. Archive logs disponibles ? (oui/non) : ").strip().lower()
+        
+        return {
+            'target_time': target_time,
+            'tablespaces': tablespaces.split(',') if tablespaces.lower() != 'all' else ['all'],
+            'has_archive_logs': 'oui' in has_archive,
+            'scenario_type': 'point_in_time'
+        }
+    
+    def _collect_table_recovery_info(self) -> Dict:
+        """Collecte les infos pour récupération de table"""
+        print("\n📝 Informations nécessaires :\n")
+        
+        table_name = input("1. Nom de la table : ").strip().upper()
+        action = input("2. Action (DROP/TRUNCATE/UPDATE) : ").strip().upper()
+        incident_time = input("3. Timestamp de l'incident (ex: 2024-01-15 10:00:00) : ").strip()
+        flashback = input("4. Flashback activé ? (oui/non) : ").strip().lower()
+        
+        return {
+            'table_name': table_name,
+            'action': action,
+            'incident_time': incident_time,
+            'flashback_enabled': 'oui' in flashback,
+            'scenario_type': 'table_recovery'
+        }
+    
+    def _collect_tablespace_recovery_info(self) -> Dict:
+        """Collecte les infos pour récupération de tablespace"""
+        print("\n📝 Informations nécessaires :\n")
+        
+        tablespace_name = input("1. Nom du tablespace : ").strip().upper()
+        reason = input("2. Raison (corruption/suppression/autre) : ").strip()
+        has_backup = input("3. Backup du tablespace disponible ? (oui/non) : ").strip().lower()
+        
+        return {
+            'tablespace_name': tablespace_name,
+            'reason': reason,
+            'has_backup': 'oui' in has_backup,
+            'scenario_type': 'tablespace_recovery'
+        }
+    
+    def generate_playbook(self, scenario: str, details: Dict) -> Dict:
         """
-        Recommande une stratégie de sauvegarde optimale
+        Génère un playbook détaillé de récupération
         
         Args:
-            rpo: Recovery Point Objective (ex: "15 minutes", "4 heures", "1 jour")
-            rto: Recovery Time Objective (ex: "1 heure", "4 heures", "1 jour")
-            db_size: Taille de la base (ex: "10GB", "500GB", "2TB")
-            criticality: Criticité ("critique", "haute", "moyenne", "faible")
-            budget: Budget disponible ("illimité", "élevé", "moyen", "limité")
-            transaction_volume: Volume de transactions ("très élevé", "élevé", "moyen", "faible")
+            scenario: Type de scénario ('complete_restore', 'point_in_time', etc.)
+            details: Détails collectés du scénario
         
         Returns:
-            Stratégie recommandée avec script RMAN
+            Playbook complet avec étapes, commandes, validations
         """
-        logger.info("="*60)
-        logger.info("💾 RECOMMANDATION DE STRATÉGIE DE SAUVEGARDE")
-        logger.info("="*60)
-        
-        logger.info(f"\n📋 Exigences :")
-        logger.info(f"   RPO : {rpo}")
-        logger.info(f"   RTO : {rto}")
-        logger.info(f"   Taille DB : {db_size}")
-        logger.info(f"   Criticité : {criticality}")
-        logger.info(f"   Budget : {budget}")
-        logger.info(f"   Volume transactions : {transaction_volume}")
+        logger.info(f"🤖 Génération du playbook pour : {scenario}")
         
         # Récupérer le context RAG
-        search_query = f"stratégie sauvegarde Oracle RMAN RPO RTO {criticality} archive logs"
+        search_query = f"Oracle recovery {scenario} RMAN restore flashback procedure"
         context_docs = self.rag.retrieve_context(search_query, top_k=4)
         context = "\n\n".join([doc['document'] for doc in context_docs])
         
-        # Préparer les paramètres pour le LLM
-        requirements = {
-            'rpo': rpo,
-            'rto': rto,
-            'db_size': db_size,
-            'criticality': criticality,
-            'budget': budget,
-            'transaction_volume': transaction_volume
-        }
-        
-        # Obtenir la recommandation de l'IA
-        logger.info("\n🤖 Analyse IA en cours...")
+        # Générer avec l'IA
         try:
-            recommendation = self.llm.recommend_backup(
-                requirements=requirements,
+            playbook_text = self.llm.guide_recovery(
+                scenario=scenario,
+                details=details,
                 context=context
             )
             
-            # Enrichir avec des scripts RMAN détaillés
-            recommendation = self._enrich_with_rman_scripts(recommendation)
+            # Parser et structurer le playbook
+            playbook = self._parse_playbook(playbook_text, scenario, details)
             
-            # Ajouter métadonnées
-            recommendation['input_requirements'] = requirements
-            recommendation['timestamp'] = datetime.now().isoformat()
+            self.current_playbook = playbook
+            logger.success("✅ Playbook généré")
             
-            self.recommendations = recommendation
-            
-            logger.success("✅ Stratégie recommandée générée")
-            
-            return recommendation
+            return playbook
             
         except Exception as e:
-            logger.error(f"❌ Erreur génération stratégie : {e}")
+            logger.error(f"❌ Erreur génération playbook : {e}")
             return {'error': str(e)}
     
-    def _enrich_with_rman_scripts(self, recommendation: Dict) -> Dict:
-        """Enrichit la recommandation avec des scripts RMAN complets"""
-        
-        # Script de configuration RMAN
-        config_script = """
--- Configuration RMAN
-CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF {retention} DAYS;
-CONFIGURE CONTROLFILE AUTOBACKUP ON;
-CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '{backup_location}/%F';
-CONFIGURE DEVICE TYPE DISK PARALLELISM {parallelism};
-CONFIGURE COMPRESSION ALGORITHM 'MEDIUM';
-"""
-        
-        # Script de sauvegarde complète
-        full_backup_script = """
--- Sauvegarde complète
-RUN {
-  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '{backup_location}/full_%U';
-  BACKUP AS COMPRESSED BACKUPSET
-    DATABASE
-    PLUS ARCHIVELOG DELETE INPUT;
-  BACKUP CURRENT CONTROLFILE FORMAT '{backup_location}/control_%U';
-  BACKUP SPFILE FORMAT '{backup_location}/spfile_%U';
-  RELEASE CHANNEL ch1;
-}
-"""
-        
-        # Script de sauvegarde incrémentale
-        incremental_backup_script = """
--- Sauvegarde incrémentale niveau 1
-RUN {
-  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '{backup_location}/incr_%U';
-  BACKUP AS COMPRESSED BACKUPSET
-    INCREMENTAL LEVEL 1
-    DATABASE
-    PLUS ARCHIVELOG DELETE INPUT;
-  RELEASE CHANNEL ch1;
-}
-"""
-        
-        # Script d'archivage des logs
-        archive_log_script = """
--- Sauvegarde des archive logs
-RUN {
-  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '{backup_location}/arch_%U';
-  BACKUP AS COMPRESSED BACKUPSET
-    ARCHIVELOG ALL DELETE INPUT;
-  RELEASE CHANNEL ch1;
-}
-"""
-        
-        # Ajouter les scripts avec variables remplies
-        backup_location = '/u01/backup/oracle'
-        retention = recommendation.get('retention', '7').split()[0]
-        parallelism = '2'
-        
-        recommendation['scripts'] = {
-            'configuration': config_script.format(
-                retention=retention,
-                backup_location=backup_location,
-                parallelism=parallelism
-            ),
-            'full_backup': full_backup_script.format(backup_location=backup_location),
-            'incremental_backup': incremental_backup_script.format(backup_location=backup_location),
-            'archive_log_backup': archive_log_script.format(backup_location=backup_location)
+    def _parse_playbook(self, playbook_text: str, scenario: str, details: Dict) -> Dict:
+        """Parse et structure le playbook"""
+        playbook = {
+            'scenario': scenario,
+            'details': details,
+            'generated_at': datetime.now().isoformat(),
+            'content': playbook_text,
+            'metadata': {
+                'estimated_duration': self._estimate_duration(scenario, details),
+                'risk_level': self._assess_risk(scenario, details),
+                'prerequisites': self._list_prerequisites(scenario, details)
+            }
         }
         
-        # Script de planification cron
-        cron_schedule = self._generate_cron_schedule(recommendation)
-        recommendation['cron_schedule'] = cron_schedule
-        
-        return recommendation
+        return playbook
     
-    def _generate_cron_schedule(self, recommendation: Dict) -> List[Dict]:
-        """Génère un planning cron pour les sauvegardes"""
-        schedule = []
-        
-        frequence = recommendation.get('frequence', {})
-        
-        # Sauvegarde complète
-        if 'complete' in frequence:
-            freq = frequence['complete'].lower()
-            if 'quotidien' in freq:
-                schedule.append({
-                    'type': 'full_backup',
-                    'cron': '0 2 * * *',
-                    'description': 'Sauvegarde complète quotidienne à 2h00'
-                })
-            elif 'hebdomadaire' in freq:
-                schedule.append({
-                    'type': 'full_backup',
-                    'cron': '0 2 * * 0',
-                    'description': 'Sauvegarde complète hebdomadaire le dimanche à 2h00'
-                })
-        
-        # Sauvegarde incrémentale
-        if 'incrementale' in frequence:
-            freq = frequence['incrementale'].lower()
-            if 'horaire' in freq:
-                schedule.append({
-                    'type': 'incremental_backup',
-                    'cron': '0 * * * *',
-                    'description': 'Sauvegarde incrémentale toutes les heures'
-                })
-            elif 'quotidien' in freq:
-                schedule.append({
-                    'type': 'incremental_backup',
-                    'cron': '0 4 * * *',
-                    'description': 'Sauvegarde incrémentale quotidienne à 4h00'
-                })
-        
-        # Archive logs
-        if 'archive_logs' in frequence:
-            freq = frequence['archive_logs'].lower()
-            if '15' in freq or 'minutes' in freq:
-                schedule.append({
-                    'type': 'archive_log_backup',
-                    'cron': '*/15 * * * *',
-                    'description': 'Sauvegarde archive logs toutes les 15 minutes'
-                })
-            elif 'horaire' in freq:
-                schedule.append({
-                    'type': 'archive_log_backup',
-                    'cron': '0 * * * *',
-                    'description': 'Sauvegarde archive logs toutes les heures'
-                })
-        
-        return schedule
+    def _estimate_duration(self, scenario: str, details: Dict) -> str:
+        """Estime la durée de la procédure"""
+        durations = {
+            'complete_restore': '2-6 heures',
+            'point_in_time': '1-4 heures',
+            'table_recovery': '15-60 minutes',
+            'tablespace_recovery': '30 minutes - 2 heures'
+        }
+        return durations.get(scenario, '1-3 heures')
     
-    def save_strategy(self, output_dir='data/oracle_exports/backup_strategies'):
-        """Sauvegarde la stratégie recommandée"""
+    def _assess_risk(self, scenario: str, details: Dict) -> str:
+        """Évalue le niveau de risque"""
+        if scenario == 'complete_restore':
+            return 'ÉLEVÉ - Perte de données possible si mal exécuté'
+        elif scenario == 'point_in_time':
+            return 'MOYEN - Transactions après le point de récupération seront perdues'
+        elif scenario == 'table_recovery':
+            if details.get('flashback_enabled'):
+                return 'FAIBLE - Flashback permet récupération sûre'
+            else:
+                return 'MOYEN - Sans flashback, utilisation de backup nécessaire'
+        else:
+            return 'MOYEN'
+    
+    def _list_prerequisites(self, scenario: str, details: Dict) -> List[str]:
+        """Liste les prérequis"""
+        prereqs = [
+            'Accès SYSDBA à la base Oracle',
+            'Espace disque suffisant pour la restauration',
+            'Backups RMAN valides et accessibles'
+        ]
+        
+        if scenario in ['complete_restore', 'point_in_time']:
+            prereqs.append('Archive logs nécessaires disponibles')
+        
+        if scenario == 'table_recovery' and not details.get('flashback_enabled'):
+            prereqs.append('Backup contenant la table cible')
+        
+        return prereqs
+    
+    def save_playbook(self, output_dir='data/oracle_exports/recovery_playbooks'):
+        """Sauvegarde le playbook"""
+        if not self.current_playbook:
+            logger.warning("Aucun playbook à sauvegarder")
+            return None
+        
         os.makedirs(output_dir, exist_ok=True)
         
+        scenario = self.current_playbook.get('scenario', 'unknown')
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{output_dir}/backup_strategy_{timestamp}.json"
+        filename = f"{output_dir}/playbook_{scenario}_{timestamp}.json"
         
         with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(self.recommendations, f, indent=2, ensure_ascii=False)
+            json.dump(self.current_playbook, f, indent=2, ensure_ascii=False)
         
-        logger.success(f"💾 Stratégie sauvegardée : {filename}")
+        logger.success(f"💾 Playbook sauvegardé : {filename}")
         
-        # Sauvegarder aussi les scripts séparément
-        scripts_dir = f"{output_dir}/scripts"
-        os.makedirs(scripts_dir, exist_ok=True)
+        # Sauvegarder aussi en texte pour faciliter la lecture
+        text_filename = filename.replace('.json', '.txt')
+        with open(text_filename, 'w', encoding='utf-8') as f:
+            f.write(self.format_playbook_for_print())
         
-        if 'scripts' in self.recommendations:
-            for script_name, script_content in self.recommendations['scripts'].items():
-                script_file = f"{scripts_dir}/{script_name}_{timestamp}.sql"
-                with open(script_file, 'w') as f:
-                    f.write(script_content)
-                logger.info(f"   📜 Script : {script_file}")
+        logger.info(f"   📄 Version texte : {text_filename}")
         
         return filename
     
-    def print_summary(self):
-        """Affiche un résumé de la stratégie recommandée"""
-        if not self.recommendations or 'error' in self.recommendations:
-            logger.warning("Aucune recommandation disponible")
-            return
+    def format_playbook_for_print(self) -> str:
+        """Formate le playbook pour affichage/impression"""
+        if not self.current_playbook:
+            return "Aucun playbook disponible"
         
-        rec = self.recommendations
+        pb = self.current_playbook
         
-        print("\n" + "="*60)
-        print("💾 STRATÉGIE DE SAUVEGARDE RECOMMANDÉE")
-        print("="*60)
+        output = []
+        output.append("="*70)
+        output.append("🚨 PLAYBOOK DE RÉCUPÉRATION ORACLE")
+        output.append("="*70)
+        output.append("")
+        output.append(f"📋 Scénario : {pb.get('scenario', 'N/A').replace('_', ' ').title()}")
+        output.append(f"⏰ Généré le : {pb.get('generated_at', 'N/A')}")
+        output.append("")
+        output.append("📊 MÉTADONNÉES")
+        output.append("-" * 70)
         
-        print(f"\n📌 Stratégie : {rec.get('strategie_recommandee', 'N/A')}")
-        print(f"   Type : {rec.get('type_backup', 'N/A')}")
+        metadata = pb.get('metadata', {})
+        output.append(f"⏱️  Durée estimée : {metadata.get('estimated_duration', 'N/A')}")
+        output.append(f"⚠️  Niveau de risque : {metadata.get('risk_level', 'N/A')}")
+        output.append("")
+        output.append("✅ PRÉREQUIS :")
+        for prereq in metadata.get('prerequisites', []):
+            output.append(f"   • {prereq}")
+        output.append("")
+        output.append("="*70)
+        output.append("📝 PROCÉDURE DÉTAILLÉE")
+        output.append("="*70)
+        output.append("")
+        output.append(pb.get('content', 'Contenu non disponible'))
+        output.append("")
+        output.append("="*70)
+        output.append("✅ FIN DU PLAYBOOK")
+        output.append("="*70)
         
-        print(f"\n⏰ Fréquences :")
-        frequence = rec.get('frequence', {})
-        for backup_type, freq in frequence.items():
-            print(f"   • {backup_type.title()} : {freq}")
-        
-        print(f"\n📦 Rétention : {rec.get('retention', 'N/A')}")
-        print(f"💾 Stockage : {rec.get('stockage', 'N/A')}")
-        print(f"💰 Coût estimé : {rec.get('cout_estime', 'N/A')}")
-        
-        print(f"\n📝 Justification :")
-        print(f"   {rec.get('justification', 'N/A')}")
-        
-        # Planning cron
-        if 'cron_schedule' in rec and rec['cron_schedule']:
-            print(f"\n🕐 Planning (crontab) :")
-            for job in rec['cron_schedule']:
-                print(f"   {job['cron']} - {job['description']}")
-        
-        print("\n" + "="*60)
+        return "\n".join(output)
     
-    def interactive_wizard(self) -> Dict:
-        """Assistant interactif pour recueillir les besoins"""
-        print("\n" + "="*60)
-        print("🧙 ASSISTANT DE CONFIGURATION DE SAUVEGARDE")
-        print("="*60)
+    def print_playbook(self):
+        """Affiche le playbook à l'écran"""
+        print("\n" + self.format_playbook_for_print())
+    
+    def quick_scenarios(self):
+        """Génère des playbooks pour les 4 scénarios principaux (non-interactif)"""
+        logger.info("🚀 Génération des playbooks pour tous les scénarios")
         
-        print("\nRépondez aux questions suivantes :\n")
+        # Scénario 1 : Restauration complète
+        logger.info("\n1️⃣  Restauration complète...")
+        pb1 = self.generate_playbook('complete_restore', {
+            'has_rman_backups': True,
+            'has_archive_logs': True,
+            'last_backup_date': '2024-01-15',
+            'target': 'latest',
+            'scenario_type': 'crash_recovery'
+        })
         
-        # Question 1 : RPO
-        print("1️⃣  Quel est votre RPO (Recovery Point Objective) ?")
-        print("   a) 15 minutes (très critique)")
-        print("   b) 1 heure (critique)")
-        print("   c) 4 heures (important)")
-        print("   d) 1 jour (standard)")
-        rpo_choice = input("   Votre choix (a/b/c/d) : ").strip().lower()
-        rpo_map = {'a': '15 minutes', 'b': '1 heure', 'c': '4 heures', 'd': '1 jour'}
-        rpo = rpo_map.get(rpo_choice, '4 heures')
+        # Scénario 2 : PITR
+        logger.info("\n2️⃣  Point-in-time recovery...")
+        pb2 = self.generate_playbook('point_in_time', {
+            'target_time': '2024-01-15 14:30:00',
+            'tablespaces': ['USERS', 'DATA'],
+            'has_archive_logs': True,
+            'scenario_type': 'point_in_time'
+        })
         
-        # Question 2 : RTO
-        print("\n2️⃣  Quel est votre RTO (Recovery Time Objective) ?")
-        print("   a) 1 heure")
-        print("   b) 4 heures")
-        print("   c) 8 heures")
-        print("   d) 1 jour")
-        rto_choice = input("   Votre choix (a/b/c/d) : ").strip().lower()
-        rto_map = {'a': '1 heure', 'b': '4 heures', 'c': '8 heures', 'd': '1 jour'}
-        rto = rto_map.get(rto_choice, '4 heures')
+        # Scénario 3 : Table recovery
+        logger.info("\n3️⃣  Récupération de table...")
+        pb3 = self.generate_playbook('table_recovery', {
+            'table_name': 'EMPLOYEES',
+            'action': 'DROP',
+            'incident_time': '2024-01-15 10:00:00',
+            'flashback_enabled': True,
+            'scenario_type': 'table_recovery'
+        })
         
-        # Question 3 : Taille DB
-        print("\n3️⃣  Quelle est la taille de votre base de données ?")
-        db_size = input("   (ex: 100GB, 500GB, 2TB) : ").strip() or "100GB"
+        # Scénario 4 : Tablespace recovery
+        logger.info("\n4️⃣  Récupération de tablespace...")
+        pb4 = self.generate_playbook('tablespace_recovery', {
+            'tablespace_name': 'USERS',
+            'reason': 'corruption',
+            'has_backup': True,
+            'scenario_type': 'tablespace_recovery'
+        })
         
-        # Question 4 : Criticité
-        print("\n4️⃣  Quelle est la criticité de votre base ?")
-        print("   a) Critique (production 24/7)")
-        print("   b) Haute (production heures ouvrables)")
-        print("   c) Moyenne (pré-production)")
-        print("   d) Faible (développement/test)")
-        crit_choice = input("   Votre choix (a/b/c/d) : ").strip().lower()
-        crit_map = {'a': 'critique', 'b': 'haute', 'c': 'moyenne', 'd': 'faible'}
-        criticality = crit_map.get(crit_choice, 'moyenne')
+        self.current_playbook = pb1  # Garder le premier pour l'exemple
         
-        # Question 5 : Budget
-        print("\n5️⃣  Quel est votre budget pour les sauvegardes ?")
-        print("   a) Illimité")
-        print("   b) Élevé")
-        print("   c) Moyen")
-        print("   d) Limité")
-        budget_choice = input("   Votre choix (a/b/c/d) : ").strip().lower()
-        budget_map = {'a': 'illimité', 'b': 'élevé', 'c': 'moyen', 'd': 'limité'}
-        budget = budget_map.get(budget_choice, 'moyen')
+        logger.success("\n✅ 4 playbooks générés")
         
-        print("\n⏳ Génération de la stratégie optimale...\n")
-        
-        # Générer la recommandation
-        return self.recommend_strategy(
-            rpo=rpo,
-            rto=rto,
-            db_size=db_size,
-            criticality=criticality,
-            budget=budget
-        )
+        return [pb1, pb2, pb3, pb4]
 
 
 def main():
     """Fonction principale"""
     logger.info("="*60)
-    logger.info("MODULE 7 : PLANS DE SAUVEGARDE INTELLIGENTS")
+    logger.info("MODULE 8 : RESTAURATION & RÉCUPÉRATION ASSISTÉE")
     logger.info("="*60)
     
-    # Initialiser le recommandateur
-    recommender = BackupRecommender()
+    # Initialiser le guide
+    guide = RecoveryGuide()
     
-    # Mode interactif ou automatique
+    # Mode de fonctionnement
     print("\n🎯 Mode de fonctionnement :")
     print("   1) Mode interactif (assistant)")
-    print("   2) Mode automatique (exemple pré-défini)")
+    print("   2) Mode automatique (générer les 4 scénarios)")
     mode = input("Votre choix (1/2) : ").strip()
     
     if mode == '1':
         # Mode interactif
-        recommendation = recommender.interactive_wizard()
+        playbook = guide.start_recovery_wizard()
+        
+        if playbook and 'error' not in playbook:
+            # Afficher le playbook
+            guide.print_playbook()
+            
+            # Sauvegarder
+            guide.save_playbook()
     else:
-        # Mode automatique avec exemple
-        logger.info("\n📋 Utilisation d'un exemple de configuration...\n")
-        recommendation = recommender.recommend_strategy(
-            rpo="1 heure",
-            rto="4 heures",
-            db_size="500GB",
-            criticality="haute",
-            budget="moyen",
-            transaction_volume="élevé"
-        )
+        # Mode automatique
+        playbooks = guide.quick_scenarios()
+        
+        # Afficher le premier comme exemple
+        guide.print_playbook()
+        
+        # Sauvegarder tous
+        for i, pb in enumerate(playbooks, 1):
+            guide.current_playbook = pb
+            guide.save_playbook()
     
-    # Afficher le résumé
-    recommender.print_summary()
-    
-    # Sauvegarder
-    recommender.save_strategy()
-    
-    logger.info("\n✅ MODULE 7 TERMINÉ")
-    logger.info("📂 Stratégie disponible dans data/oracle_exports/backup_strategies/")
+    logger.info("\n✅ MODULE 8 TERMINÉ")
+    logger.info("📂 Playbooks disponibles dans data/oracle_exports/recovery_playbooks/")
 
 
 if __name__ == "__main__":
     main()
-    

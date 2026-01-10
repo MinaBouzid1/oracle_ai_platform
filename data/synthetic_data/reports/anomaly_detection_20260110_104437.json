@@ -1,0 +1,1713 @@
+{
+  "timestamp": "2026-01-10T10:44:37.373061",
+  "input_file": "data/synthetic_data/audit_logs_synthetic.csv",
+  "statistics": {
+    "total_analyzed": 70,
+    "normal": 2,
+    "suspect": 31,
+    "critique": 37
+  },
+  "detections": [
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative d'UPDATE sur la table DEPARTMENTS. Cela est normal et ne constitue pas en soi un comportement suspect. Toutefois, il n'y a pas de signes distinctifs d'un type de détection spécifique (comme des tentatives de brute force ou de reconnaissance système). Il est important de surveiller ce type d'activité pour détecter potential anomalies.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Continuer à surveiller cette activité"
+      ],
+      "log_number": 1,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-09 11:43:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.45",
+        "OS_USERNAME": "employee83",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Le seul événement noté dans le log est une tentative d'UPDATE sur la table 'PRODUCTS'. Il n'y a pas de signes d'attaque connus tels que des injections SQL, des tentatives d'escalade de privilèges, de données exfiltrées ou de reconnaissance. Cependant, il est important de noter qu'il y avait précédemment une tentative de sélection de données sensibles qui a été rejetée (SELECT massif hors heures). Cette action pourrait être suspecte si elle se produit à nouveau sans contexte approprié.",
+      "severite": 5,
+      "actions_recommandees": [
+        "Étudier l'historique des accès pour HR_USER et vérifier les activités récentes",
+        "Vérifier la configuration de sécurité du compte HR_USER"
+      ],
+      "log_number": 2,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-09 12:12:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "PRODUCTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.20",
+        "OS_USERNAME": "employee57",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log est suspect car il indique une tentative d'insertion de données par un utilisateur nommé REPORT_USER. Cependant, il n'y a pas de signes immédiats de comportements anormaux comme des tentatives de brute force ou de reconnaissance système. Il pourrait être lié à une action normale si l'utilisateur est autorisé à effectuer des insertions dans la base de données CUSTOMERS.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier les permissions de l'utilisateur REPORT_USER pour l'objet CUSTOMERS",
+        "Évaluer le contexte de cette action"
+      ],
+      "log_number": 3,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-04 07:57:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.24",
+        "OS_USERNAME": "employee97",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 40,
+      "type_anomalie": null,
+      "justification": "Le log est basé sur une action SELECT simple et légitime par un utilisateur normal (APP_USER) pour récupérer des informations de la table DEPARTMENTS. Il n'y a pas d'éléments spécifiques qui indiquent une anomalie ou une menace immédiate, mais il pourrait être suspect si c'était le seul événement observé dans un contexte plus large où d'autres comportements anormaux sont détectés.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Continuer à surveiller l'utilisateur APP_USER pour voir s'il y a des activités inusitées"
+      ],
+      "log_number": 4,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 11:19:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.27",
+        "OS_USERNAME": "employee8",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le client ID est constant (192.168.1.28) et le nom d'utilisateur change, ce qui peut indiquer une tentative de reconnaissance. Cependant, il n'y a pas de signes de succès immédiat après les tentatives de connexion manquées.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Examiner l'activité des utilisateurs avec un client ID constant",
+        "Vérifier si d'autres comptes ont été créés par ce client ID"
+      ],
+      "log_number": 5,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 07:34:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.28",
+        "OS_USERNAME": "employee38",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": "Escalade privilèges",
+      "justification": "Le log indique une création de compte avec des privilèges élevés (GRANT SYSDBA TO APP_USER) par un utilisateur non-DBA. C'est un cas typique d'escalade de privilèges qui est considéré comme critique en raison du potentiel élevé pour la destruction ou l'exfiltration de données sensibles.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Bloquer immédiatement IP source (firewall)",
+        "Lock le compte compromis",
+        "Auditer tous les logs 7 derniers jours",
+        "Vérifier intégrité données (checksums)",
+        "Escalade SOC/CSIRT",
+        "Preservation preuves légales"
+      ],
+      "log_number": 6,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 23:51:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "CREATE USER",
+        "OBJECT_NAME": "DBA TO APP_USER",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.162",
+        "OS_USERNAME": "user5",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "privilege_escalation"
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative d'insertion dans la base de données par un utilisateur nommé APP_USER. Bien que cela ne soit pas immédiatement suspect, il est important de noter qu'il s'agit du premier événement observé pour cet utilisateur et que l'action n'a pas été suivie d'un succès (RETURNCODE: 0). De plus, il y a eu plusieurs tentatives de connexion précédentes avec des clients différents (192.168.1.10, 192.168.1.50), ce qui pourrait indiquer une tentative de reconnaissance système.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Examiner l'historique des tentatives de connexion pour cet utilisateur",
+        "Vérifier si l'utilisateur est censé avoir accès à la table ORDERS",
+        "Configurer un profil de sécurité plus strict pour ce client"
+      ],
+      "log_number": 7,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 11:47:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "ORDERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.10",
+        "OS_USERNAME": "employee31",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 95,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le log indique une tentative de connexion réussie suivi d'une action suspecte (SELECT sur ORDERS). Cela correspond à un scénario de brute force, avec plusieurs tentatives échouées précédant la connexion réussie. L'objectif SELECT est également suspect car il peut être utilisé pour exfiltrer des données.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Interdire l'utilisateur ANALYST",
+        "Vérifier les comptes créés par APP_USER",
+        "Analyser la connexion depuis le client_id 192.168.1.25"
+      ],
+      "log_number": 8,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 10:17:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "ORDERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.25",
+        "OS_USERNAME": "employee59",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": null,
+      "justification": "Le seul événement noté dans le log est un INSERT sur la table 'PRODUCTS'. Bien que cela ne soit pas suspect en soi, l'absence de logs d'autres actions potentiellement anormales (comme des SELECTs massifs ou des GRANTS) peut indiquer une activité malveillante. Cependant, sans contexte supplémentaire comme un pattern d'exfiltration de données, une escalade de privilèges ou d'autres anomalies, cette action seule ne constitue pas une anomalie critique.",
+      "severite": 7,
+      "actions_recommandees": [
+        "Surveiller l'activité du compte 'REPORT_USER' pour détecter d'éventuelles activités malveillantes",
+        "Vérifier si le compte 'APP_USER' a été créé ou modifié récemment"
+      ],
+      "log_number": 9,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 16:01:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "PRODUCTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.31",
+        "OS_USERNAME": "employee54",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative d'UPDATE sur l'objet 'EMPLOYEES'. Cependant, il n'y a pas de signes immédiats de comportements anormaux comme des tentatives de brute force, de reconnaissance système ou d'exfiltration de données. Il est possible que ce soit un utilisateur normal effectuant une tâche quotidienne.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier les permissions de l'utilisateur APP_USER sur l'objet EMPLOYEES"
+      ],
+      "log_number": 10,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-07 13:52:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "EMPLOYEES",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.46",
+        "OS_USERNAME": "employee93",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 40,
+      "type_anomalie": null,
+      "justification": "Le log est basé sur une action d'insertion dans la base de données par un utilisateur légitime (ANALYST) avec un accès normal pendant les heures de bureau. Cependant, il n'y a pas d'autres signes d'anomalies comme des tentatives de brute force, d'accès non autorisé ou d'exfiltration de données. Il est classé suspect car il pourrait indiquer une activité inhabituelle dans un contexte plus large.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Continuer à surveiller l'utilisateur ANALYST pour détecter toute anomalie supplémentaire"
+      ],
+      "log_number": 11,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 07:45:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.44",
+        "OS_USERNAME": "employee24",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative de sélection des données dans la vue DBA_USERS, qui est généralement réservée aux utilisateurs avec les privilèges DBA. Cela peut être considéré comme un comportement suspect car il pourrait s'agir d'une tentative d'accès non autorisé à des informations sensibles.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Examiner l'historique de connexion du utilisateur REPORT_USER pour vérifier si ce compte a été créé récemment et si les accès sont justifiés",
+        "Vérifier si d'autres utilisateurs ont des permissions similaires à DBA_USERS"
+      ],
+      "log_number": 12,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-07 01:11:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "DBA_USERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.115",
+        "OS_USERNAME": "external",
+        "TERMINAL": "REMOTE"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "data_exfiltration"
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative de connexion réussie suivi d'actions suspectes. Bien que cela ne corresponde pas directement à un pattern de détection spécifique, il suggère des activités potentiellement malveillantes. Il y a eu plusieurs tentatives de connexion (5) en moins de 5 minutes provenullt du même client ID et utilisateurs variés, ce qui est typique d'une attaque par brute force. De plus, l'utilisateur a ensuite effectué une action SELECT sur la table DBA_USERS, qui peut être suspecte si elle n'est pas nécessaire.",
+      "severite": 5,
+      "actions_recommandees": [
+        "Éviter les connexions non sécurisées provenullt de ce client ID",
+        "Vérifier l'activité des utilisateurs suspects",
+        "Analyser la raison pour laquelle le compte a été activé"
+      ],
+      "log_number": 13,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-09 17:40:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.48",
+        "OS_USERNAME": "employee20",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Le seul événement noté dans le log est une tentative d'UPDATE sur la table 'PRODUCTS'. Il n'y a pas de signes d'attaque connus tels que des injections SQL, des tentatives d'escalade de privilèges, de reconnaissance ou d'exfiltration de données. Cependant, il est important de noter que cet événement pourrait être suspect si le contexte historique indiquait une anomalie inexpliquée.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Étudier attentivement l'activité du compte 'REPORT_USER', en particulier les autres actions effectuées à proximité de cette date"
+      ],
+      "log_number": 14,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 08:26:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "PRODUCTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.16",
+        "OS_USERNAME": "employee82",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Le log ne contient pas d'activité suspecte en relation avec les patterns d'attaque spécifiques. Cependant, il est important de noter que le fait d'exécuter une requête SELECT UNION sur des données sensibles (id=1) et les utilisateurs peut être considéré comme un comportement anormal ou malveillant. Il serait recommandé d'audit cette activité plus en détail.",
+      "severite": 5,
+      "actions_recommandees": [
+        "Audit l'utilisation de la requête SELECT UNION sur des données sensibles"
+      ],
+      "log_number": 15,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 16:41:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "PRODUCTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.21",
+        "OS_USERNAME": "employee49",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 40,
+      "type_anomalie": null,
+      "justification": "Le log est basé sur une action SELECT simple et légitime pour un utilisateur (SCOTT) qui a accès à la base de données. Il n'y a pas d'indicateurs spécifiques de comportements anormaux ou malveillants, mais il pourrait être considéré comme suspect en raison de l'absence de contexte historique fourni.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Élaborer un rapport pour demander une analyse plus approfondie du comportement SCOTT"
+      ],
+      "log_number": 16,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-07 17:02:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.46",
+        "OS_USERNAME": "employee83",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le log indique une tentative d'ALTER USER par un utilisateur non-DBA (user7) sur le compte BACKDOOR_ADMIN, qui est suspect. Cela correspond à l'un des red flags de tentatives de brute force, car il s'agit d'une action inappropriée pour un utilisateur non-DBA.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Interdire l'utilisateur user7",
+        "Vérifier les autres activités du compte BACKDOOR_ADMIN"
+      ],
+      "log_number": 17,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 10:06:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "ALTER USER",
+        "OBJECT_NAME": "BACKDOOR_ADMIN",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.208",
+        "OS_USERNAME": "user7",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "privilege_escalation"
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": null,
+      "justification": "Le log d'audit correspond à une tentative de reconnaissance ou d'exfiltration des données. L'utilisateur 'REPORT_USER' a effectué un SELECT sur la table 'CREDIT_CARDS', qui est suspecte en raison du nombre élevé de lignes traitées (50,000+). De plus, l'accès nocturne à cette heure (22h00) et le fait que cet utilisateur n'a pas d'activité récente sont des signaux d'alerte. Cela correspond aux critères d'exfiltration de données.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Restriction d'accès nocturne, revue des permissions utilisateur et surveillance accrue"
+      ],
+      "log_number": 18,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 02:39:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "CREDIT_CARDS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.146",
+        "OS_USERNAME": "external",
+        "TERMINAL": "REMOTE"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "data_exfiltration"
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le logiciel n'inclut pas de signes distinctifs d'attaques telles que des tentatives de brute force, d'exfiltration de données ou de reconnaissance système. Cependant, il est suspect car le client ID et l'utilisateur sont variés (employee15), ce qui peut indiquer une attaque par déni de service basée sur un dictionnaire. De plus, la présence d'un utilisateur non-DBA effectuant des opérations potentiellement dangereuses comme un UPDATE sur la table CUSTOMERS est également suspecte.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier les accès non autorisés pour l'utilisateur employee15",
+        "Éliminer ou sécuriser le compte de l'utilisateur REPORT_USER",
+        "Examiner les opérations potentiellement dangereuses"
+      ],
+      "log_number": 19,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 12:40:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.19",
+        "OS_USERNAME": "employee15",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 50,
+      "type_anomalie": null,
+      "justification": "Le log est suspect car il concerne un utilisateur non-DBA (REPORT_USER) effectuant une opération DDL (INSERT). Cela peut indiquer une tentative d'accès non autorisé ou de reconnaissance. De plus, l'heure du jour n'est pas mentionnée dans le contexte historique fourni, ce qui pourrait être un signe de comportement inhabituel.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier les accès non autorisés pour REPORT_USER",
+        "Évaluer l'heure du jour pour REPORT_USER"
+      ],
+      "log_number": 20,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 08:07:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "EMPLOYEES",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.41",
+        "OS_USERNAME": "employee23",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 40,
+      "type_anomalie": null,
+      "justification": "Le log est basé sur une action d'insertion dans la base de données par un utilisateur légitime (SCOTT) avec un objet nommé DEPARTMENTS. Bien que cela ne soit pas suspect en soi, il pourrait être considéré comme anormal si l'utilisateur SCOTT n'a pas accès à cette table ou s'il est associé à des activités d'audit ou de surveillance plutôt qu'à des opérations normales. Il n'y a aucune indication directe de comportements malveillants dans ce log.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier l'accès utilisateur SCOTT à la table DEPARTMENTS"
+      ],
+      "log_number": 21,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 12:44:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.25",
+        "OS_USERNAME": "employee76",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative de sélection des données dans la vue DBA_USERS, qui est généralement réservée aux utilisateurs avec les privilèges DBA. Cela correspond à un pattern d'attaque potentiel : l'exfiltration de données (pattern 3). L'accès à cette vue par un utilisateur non-DBA est suspect et pourrait indiquer une tentative d'extraction de données sensibles.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Interdire l'accès à la vue DBA_USERS pour tous les utilisateurs sauf ceux avec les privilèges DBA",
+        "Vérifier si le compte HR_USER a été créé par une escalade de privilège"
+      ],
+      "log_number": 22,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 21:24:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "DBA_USERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.141",
+        "OS_USERNAME": "user42",
+        "TERMINAL": "REMOTE"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "off_hours_access"
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative d'insertion de données par un utilisateur nommé REPORT_USER. Bien que cela ne soit pas immédiatement suspect, le contexte historique mentionne des tentatives de brute force précédentes (multiple FAILED LOGIN) et l'utilisation de clients non-bénignes (CLIENT_ID: 192.168.1.36). Cela pourrait indiquer une tentative d'exploitation ou de reconnaissance système.",
+      "severite": 4,
+      "actions_recommandees": [
+        "Élargir la surveillance des accès non-bénignes, vérifier les comptes avec SYSDBA privilèges"
+      ],
+      "log_number": 23,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 14:14:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.36",
+        "OS_USERNAME": "employee4",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Ce log n'inclut pas de comportement d'attaque direct. Cependant, il est associé à un contexte historique d'exfiltration de données par une attaque UNION SELECT. Bien que ce log ne démontre pas explicitement une action malveillante, son association avec des exfiltrations antérieures le classe en niveau critique.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Continuer à surveiller l'utilisateur HR_USER pour détecter d'autres tentatives potentielles d'exfiltration de données",
+        "Vérifier si d'autres actions similaires sont effectuées par HR_USER"
+      ],
+      "log_number": 24,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 07:03:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "PRODUCTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.18",
+        "OS_USERNAME": "employee6",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le logiciel n'inclut pas de signes distinctifs d'attaques spécifiques comme des guillemets, des commentaires SQL ou des tentatives de brute force. Cependant, il indique un utilisateur (APP_USER) qui a réussi à effectuer une action SELECT sur le nom d'objet 'CUSTOMERS'. Bien que cela ne soit pas suspect en soi dans ce contexte, l'utilisation d'un client IP spécifique et la présence de plusieurs tentatives de connexion potentiellement malveillantes peuvent faire écho à des attaques précédentes. Il est important de surveiller cette activité avec attention.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Élargir le suivi du comportement d'APP_USER",
+        "Vérifier les accès non autorisés dans DBA_TAB_PRIVS et DBA_USERS"
+      ],
+      "log_number": 25,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 12:33:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.16",
+        "OS_USERNAME": "employee26",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 98,
+      "type_anomalie": null,
+      "justification": "Le log d'action DELETE sur la table SALARY_DATA est suspect car il concorde avec les indicateurs de compromission observés dans le contexte historique. L'heure (01:47) et l'utilisateur (APP_USER) sont également des éléments qui pourraient indiquer un comportement anormal, surtout si ce n'est pas une action normale pour cet utilisateur.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Élaborer un scénario de réponse en fonction des indicateurs de compromission observés",
+        "Vérifier l'activité d'autres utilisateurs APP_USER à cette heure et sur cette table",
+        "Examiner les connexions depuis l'IP externe"
+      ],
+      "log_number": 26,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-07 01:47:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "DELETE",
+        "OBJECT_NAME": "SALARY_DATA",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.102",
+        "OS_USERNAME": "user17",
+        "TERMINAL": "VPN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "off_hours_access"
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le client ID est constant (192.168.1.50) et le nombre de tentatives de connexion échouées (5) est élevé pour une période courte (moins de 5 minutes). Cela correspond aux signes d'une attaque brute force.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Bloquer l'adresse IP du client",
+        "Vérifier les comptes non-DBA qui ont reçu des privilèges avec WITH ADMIN OPTION",
+        "Examiner les accès à DBA_TAB_PRIVS et autres objets de niveau élevé"
+      ],
+      "log_number": 27,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-08 17:35:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "ORDERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.50",
+        "OS_USERNAME": "employee50",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 98,
+      "type_anomalie": "SQL Injection et Reconnaissance",
+      "justification": "Le log indique une tentative de SQL Injection avec la phrase ''; DROP TABLE USERS--'. Cela est suspect car il s'agit d'une action directement contraire à l'intégrité des données. De plus, le fait que ce soit un utilisateur nommé 'ANALYST', qui semble être un compte non-DBA, tente une telle action indique une reconnaissance système potentiellement malveillante. Cela correspond également aux signes d'une attaque de reconnaissance système.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Interdire l'accès à la base de données pour l'utilisateur 'ANALYST', analyser les autres activités du compte, renforcer les contrôles d'authentification et de sécurité"
+      ],
+      "log_number": 28,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 19:43:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "CUSTOMERS WHERE email=''; DROP TABLE USERS--",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.240",
+        "OS_USERNAME": "malicious",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "sql_injection"
+    },
+    {
+      "classification": "normal",
+      "confiance": 85,
+      "type_anomalie": null,
+      "justification": "Le log est un INSERT d'un utilisateur nommé APP_USER dans la table EMPLOYEES. Il n'y a pas de signes d'attaque connus tels que des injections SQL, des tentatives de brute force, des accès non autorisés ou des exfiltrations de données. Les actions sont normales pour un INSERT légitime.",
+      "severite": 2,
+      "actions_recommandees": [
+        "Aucune action recommandée car le log est normal"
+      ],
+      "log_number": 29,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-04 07:18:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "EMPLOYEES",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.25",
+        "OS_USERNAME": "employee38",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Le log indique un login réussi du compte 'DBA' à partir d'une adresse IP spécifique (192.168.1.208) qui est une red flag basée sur les red flags absolus mentionnés dans le contexte historique. De plus, l'utilisateur 'OS_USERNAME' (attacker) n'est pas un utilisateur de base de données standard et la requête a réussi avec un code retour 1005, ce qui indique potentiellement une tentative d'injection SQL ou d'autorisation non autorisée.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Bloquer immédiatement IP source (firewall)",
+        "Lock le compte compromis",
+        "Auditer tous les logs 7 derniers jours",
+        "Vérifier intégrité données (checksums)",
+        "Escalade SOC/CSIRT",
+        "Preservation preuves légales"
+      ],
+      "log_number": 30,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-08 18:41:25",
+        "USERNAME": "DBA",
+        "ACTION": "LOGON",
+        "OBJECT_NAME": "DATABASE",
+        "RETURNCODE": 1005,
+        "CLIENT_ID": "192.168.1.208",
+        "OS_USERNAME": "attacker",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "brute_force"
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Le log indique un login réussi du compte ROOT à l'heure matinale (09:57), ce qui est hors des heures de travail normales. De plus, le retourcode est 1005, qui n'est pas normal pour une connexion réussie. Cela peut indiquer un backdoor ou une autre forme d'intrusion. L'adresse IP source (192.168.1.209) est également suspecte et correspond à l'une des red flags absolus mentionnées.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Bloquer immédiatement IP source (firewall)",
+        "Lock le compte ROOT",
+        "Auditer tous les logs de la dernière semaine",
+        "Vérifier l'intégrité des données (checksums)",
+        "Escalade SOC/CSIRT",
+        "Preservation preuves légales"
+      ],
+      "log_number": 31,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 09:57:28",
+        "USERNAME": "ROOT",
+        "ACTION": "LOGON",
+        "OBJECT_NAME": "DATABASE",
+        "RETURNCODE": 1005,
+        "CLIENT_ID": "192.168.1.209",
+        "OS_USERNAME": "attacker",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "brute_force"
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative de SELECT sur la vue DBA_USERS, qui est généralement interdite aux utilisateurs non-DBA. Cela correspond à un comportement suspect dans le cadre d'un pattern d'attaque Reconnaissance.",
+      "severite": 7,
+      "actions_recommandees": [
+        "Interdire l'accès à la vue DBA_USERS pour les utilisateurs non-DBA, surveiller les accès à cette vue"
+      ],
+      "log_number": 32,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 00:55:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "DBA_USERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.158",
+        "OS_USERNAME": "vpn_user",
+        "TERMINAL": "REMOTE"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "data_exfiltration"
+    },
+    {
+      "classification": "critique",
+      "confiance": 10,
+      "type_anomalie": null,
+      "justification": "Le log indique un utilisateur non autorisé (attacker) tentant de se connecter au système à l'heure matinale. Cela correspond aux red flags absolus mentionnés, notamment une tentative de connexion tardive et un accès potentiellement malveillant à des tables sensibles.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Bloquer immédiatement IP source (firewall)",
+        "Lock le compte compromis",
+        "Auditer tous les logs 7 derniers jours",
+        "Vérifier intégrité données (checksums)",
+        "Escalade SOC/CSIRT",
+        "Preservation preuves légales"
+      ],
+      "log_number": 33,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 03:50:27",
+        "USERNAME": "ROOT",
+        "ACTION": "LOGON",
+        "OBJECT_NAME": "DATABASE",
+        "RETURNCODE": 1005,
+        "CLIENT_ID": "192.168.1.211",
+        "OS_USERNAME": "attacker",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "brute_force"
+    },
+    {
+      "classification": "critique",
+      "confiance": 98,
+      "type_anomalie": "SQL Injection",
+      "justification": "Le log montre une tentative de SQL Injection avec l'objet 'PRODUCTS WHERE id=1' OR 'a'='a'. Cette requête est suspecte car elle utilise un OR conditionnel qui peut être utilisé pour bypasser les contrôles d'accès. De plus, la présence du caractère ' (apostrophe) dans le nom de l'objet est anormale et pourrait indiquer une tentative d'injection SQL.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Interdire l'utilisateur SCOTT",
+        "Vérifier les connexions nocturnes depuis cette IP",
+        "Éliminer tous les accès non autorisés à la base de données"
+      ],
+      "log_number": 34,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 06:41:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "PRODUCTS WHERE id=1' OR 'a'='a",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.186",
+        "OS_USERNAME": "hacker",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "sql_injection"
+    },
+    {
+      "classification": "critique",
+      "confiance": 98,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le client ID est constant (192.168.1.38) et le nombre de tentatives de connexion réussies (5) en moins de 5 minutes constitue un signe clair d'une attaque par déni de service basée sur les tentatives de brute force. De plus, l'action suivante après succès est une requête SELECT sur la table DBA_USERS, ce qui indique une reconnaissance système.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Éviter le client ID constant dans les connexions futures",
+        "Augmenter le nombre de tentatives d'authentification interdites à 10 ou plus",
+        "Vérifier la présence de compte non-DBA avec SYSDBA privilèges"
+      ],
+      "log_number": 35,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 08:48:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.38",
+        "OS_USERNAME": "employee27",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 95,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "L'utilisateur APP_USER a effectué une tentative de connexion avec un retour code non nul (RETURNCODE: 1017), ce qui indique une tentative d'authentification échouée. Cela correspond à des tentatives de brute force, car l'utilisateur est connu pour avoir essayé plusieurs utilisateurs courants comme 'admin', 'root', 'oracle', etc., précédemment.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Bloquer le compte APP_USER",
+        "Vérifier les activités de l'utilisateur depuis cette adresse IP (192.168.1.27)",
+        "Examiner la base de données pour voir si d'autres tentatives similaires ont été effectuées"
+      ],
+      "log_number": 36,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 16:45:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "ORDERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.27",
+        "OS_USERNAME": "employee89",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log d'audit ne montre pas directement de comportements anormaux ou malveillants. Cependant, il est important de noter que l'utilisateur 'HR_USER' a effectué une action d'insertion dans la base de données 'DEPARTMENTS'. Bien qu'il n'y ait pas de signes immédiats de compromission, cela pourrait être un élément d'une stratégie plus large. Il serait utile de vérifier si ce compte est utilisé pour des activités inhabituelles ou s'il y a eu des tentatives de connexion à partir d'endroits inattendus.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier l'historique d'utilisation du compte 'HR_USER', notamment les heures et les endroits où il est utilisé",
+        "Évaluer si des tentatives de connexion à partir d'endroits inattendus sont liées à ce compte"
+      ],
+      "log_number": 37,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 15:48:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.21",
+        "OS_USERNAME": "employee71",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": "Escalade privilèges",
+      "justification": "Le log indique une escalade de privilèges avec l'exécution du commandement GRANT SYSDBA TO user par un utilisateur non-DBA (APP_USER). Cela est considéré comme critique car il permet à l'utilisateur d'effectuer des opérations qui nécessitent le niveau de privilège DBA, ce qui peut potentiellement conduire à une exfiltration de données ou à une autre forme d'attaque. De plus, cela correspond aux red flags mentionnés dans les vulnérabilités courantes et les signaux rouge.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Interdire l'utilisateur APP_USER des privilèges SYSDBA",
+        "Examiner la trace de l'activité d'APP_USER pour détecter d'autres tentatives d'escalade de privilège",
+        "Vérifier si d'autres comptes ont été créés avec des privilèges élevés"
+      ],
+      "log_number": 38,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 02:12:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "GRANT",
+        "OBJECT_NAME": "DBA TO APP_USER",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.124",
+        "OS_USERNAME": "user4",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "privilege_escalation"
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": null,
+      "justification": "Le comportement observé est caractéristique d'une attaque de reconnaissance système suivie par une tentative d'escalade de privilèges. L'utilisateur a tenté plusieurs connexions échouées avant de réussir à se connecter, ce qui est suspect. Une fois connecté, il a accédé au rôle DBA_USERS, ce qui est un comportement anormal pour un utilisateur non-DBA.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Restrict l'accès aux objets sensibles à l'utilisateur",
+        "Vérifier les connexions depuis des adresses IP inconnues",
+        "Supprimer le rôle DBA_USERS si possible",
+        "Augmenter la limite de tentatives d'authentification"
+      ],
+      "log_number": 39,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-09 11:30:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "ORDERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.32",
+        "OS_USERNAME": "employee53",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative d'insertion dans la base de données par un utilisateur nommé ANALYST. Cependant, il n'y a pas de signes immédiats de comportements anormaux comme des tentatives de brute force ou de reconnaissance système. Il est possible qu'il s'agit simplement d'une tentative normale d'accès à la base de données.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier les historiques d'utilisation du compte ANALYST pour détecter des comportements anormaux"
+      ],
+      "log_number": 40,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 16:43:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "ORDERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.10",
+        "OS_USERNAME": "employee90",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le logiciel indique une action SELECT sur la table EMPLOYEES par l'utilisateur REPORT_USER. Bien que cela ne soit pas suspect en soi, il est important de vérifier si cette action est conforme au contexte historique et à la configuration de sécurité. Par exemple, si les utilisateurs non-DBA ne sont généralement pas autorisés à effectuer des SELECT sur la table EMPLOYEES, cela pourrait être une anomalie.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier l'activité de REPORT_USER pour d'autres tables et actions non autorisées",
+        "Confirmer si cette action est conforme à la politique de sécurité"
+      ],
+      "log_number": 41,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 16:07:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "EMPLOYEES",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.19",
+        "OS_USERNAME": "employee47",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log est basé sur des actions normales (UPDATE) mais il est important de noter que le client ID et les utilisateurs sont variés, ce qui peut indiquer une tentative d'intrusion. Cependant, sans contexte complet ou historique, on ne peut pas conclure avec certitude.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier l'historique des utilisateurs et des actions pour EMPLOYEES",
+        "Surveiller les activités de la base de données à partir de ce client ID"
+      ],
+      "log_number": 42,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-07 10:39:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "EMPLOYEES",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.19",
+        "OS_USERNAME": "employee98",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": "Tentatives brute force et Escalade de privilègés",
+      "justification": "Le logiciel indique une tentative d'escalade de privilèges en accordant le rôle SYSDBA à un utilisateur non-DBA (user4). Cela est considéré comme une menace critique car il peut permettre l'exécution de commandes potentiellement destructrices. De plus, la création d'un compte avec les privilèges SYSDBA est également suspecte et constitue une menace potentielle pour la sécurité du système.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Interdire l'accès à SYSDBA aux utilisateurs non-DBA",
+        "Supprimer le compte user4 s'il n'est pas nécessaire",
+        "Vérifier et supprimer tous les comptes avec privilèges élevés qui ne sont pas nécessaires",
+        "Réviser la politique de gestion des comptes pour éviter l'escalade de privilègés"
+      ],
+      "log_number": 43,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 21:42:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "ALTER USER",
+        "OBJECT_NAME": "SYSDBA TO HACKER",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.202",
+        "OS_USERNAME": "user4",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "privilege_escalation"
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log est suspect car il correspond à un pattern de brute force attack. L'username 'APP_USER' a tenté plusieurs connexions en moins de 5 minutes, ce qui est une anomalie dans le contexte d'un système sécurisé. Bien que cela ne soit pas directement lié aux patterns spécifiques de détection mentionnés (comme SQL Injection ou Privilege Escalation), il s'agit d'une action suspecte qui pourrait indiquer un test d'intrusion.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Examiner les activités de l'utilisateur 'APP_USER' plus en détail",
+        "Vérifier si d'autres tentatives de connexion sont liées à cette adresse IP",
+        "Consulter le profil du compte 'APP_USER' pour vérifier s'il est correctement configuré"
+      ],
+      "log_number": 44,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 11:03:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "ORDERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.23",
+        "OS_USERNAME": "employee76",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le client ID est constant (192.168.1.50) et le nombre de tentatives de connexion réussies (4) en moins d'une minute est élevé, ce qui correspond à un comportement typique d'un attaque par tentative brute force. De plus, l'objet sélectionné (CUSTOMERS) n'est pas une table privilégiée, mais cela peut être considéré comme suspect dans le contexte de reconnaissance systèmes.",
+      "severite": 7,
+      "actions_recommandees": [
+        "Éviter les connexions non sécurisées à partir de l'adresse IP",
+        "Vérifier la sécurité des comptes utilisateurs",
+        "Réduire ou bloquer les tentatives de connexion manquantes"
+      ],
+      "log_number": 45,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-09 08:55:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.50",
+        "OS_USERNAME": "employee6",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le logiciel indique une action SELECT sur un objet (DEPARTMENTS) sans fournir de contexte supplémentaire. Cela pourrait être suspect si d'autres actions anormales ont été observées précédemment, mais il n'y a pas de signes clairs d'activité malveillante ici.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Élargir la surveillance pour inclure des activités similaires et vérifier les utilisateurs qui ont effectué cette action"
+      ],
+      "log_number": 46,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 14:46:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.26",
+        "OS_USERNAME": "employee77",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "normal",
+      "confiance": 80,
+      "type_anomalie": null,
+      "justification": "Le log est un INSERT d'un utilisateur nommé APP_USER dans la table EMPLOYEES. Il n'y a pas de signes d'attaque connus tels que des injections SQL, des tentatives de brute force, ou des accès non autorisés. Cependant, il est important de noter que l'utilisateur utilise un client IP spécifique (192.168.1.44) qui pourrait être suspect si ce n'était pas une adresse connue et régulière pour cet utilisateur.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier la fréquence d'utilisation de l'adresse IP par l'utilisateur"
+      ],
+      "log_number": 47,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-08 13:54:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "EMPLOYEES",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.44",
+        "OS_USERNAME": "employee81",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 95,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le username 'ANALYST' est un utilisateur légitime, mais il effectue une action suspecte (SELECT) sur le nom d'objet 'ORDERS'. Cela pourrait indiquer une reconnaissance systématique ou une tentative de reconnaissance. De plus, l'utilisation de la méthode SELECT pour accéder à des données sensibles peut être considérée comme un comportement anormal.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Éliminer le compte 'ANALYST' s'il n'est pas nécessaire",
+        "Vérifier les activités de l'utilisateur 'ANALYST' et mettre en place des mesures d'audit appropriées"
+      ],
+      "log_number": 48,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-09 15:44:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "ORDERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.33",
+        "OS_USERNAME": "employee74",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 6,
+      "type_anomalie": null,
+      "justification": "Le log est un SELECT massif sur une table sensible (SALARY_DATA) à l'heure de pointe (02:23:25). L'utilisateur HR_USER a accès aux données salariales, ce qui peut être suspect. De plus, la connexion se fait depuis une IP externe (192.168.1.190), ce qui est un élément de suspicion supplémentaire.",
+      "severite": 5,
+      "actions_recommandees": [
+        "Examiner l'historique des connexions d'HR_USER",
+        "Vérifier si HR_USER a accès à cette table via une autre procédure ou utilisateur",
+        "Contacter le propriétaire de l'utilisateur pour vérifier la conformité"
+      ],
+      "log_number": 49,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 02:23:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "SALARY_DATA",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.190",
+        "OS_USERNAME": "user5",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "off_hours_access"
+    },
+    {
+      "classification": "critique",
+      "confiance": 98,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le client ID (192.168.1.12) est constant, ce qui indique un attaque de type DDoS ou brute force. De plus, l'utilisateur SCOTT a tenté plusieurs connexions en moins de 5 minutes avec le même client ID, ce qui correspond à une caractéristique typique d'une attaque brute force. L'objectif semble être la reconnaissance des systèmes (RECORD_NAME: UPDATE EMPLOYEES), ce qui est un comportement suspect.",
+      "severite": 7,
+      "actions_recommandees": [
+        "Bloquer l'utilisateur SCOTT",
+        "Vérifier les comptes avec SYSDBA privilèges",
+        "Examiner les activités de connexion du client ID 192.168.1.12"
+      ],
+      "log_number": 50,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-07 07:06:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "EMPLOYEES",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.12",
+        "OS_USERNAME": "employee79",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le logiciel n'inclut pas d'éléments clés pour classer directement comme critique ou suspect. Cependant, il indique une tentative de connexion réussie suivi par un accès à la vue système DBA_USERS, ce qui peut être interprété comme une reconnaissance systématique. Bien que cela ne soit pas immédiatement malveillant sans plus d'informations contextuelles, il est classifié comme suspect en raison du comportement inattendu.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Examiner les accès à la vue système DBA_USERS",
+        "Vérifier si l'utilisateur REPORT_USER a été affecté par une reconnaissance systématique"
+      ],
+      "log_number": 51,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 13:11:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "EMPLOYEES",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.18",
+        "OS_USERNAME": "employee75",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log est suspect car il correspond à un pattern de brute force. Il y a plusieurs tentatives de connexion (5) avec le même CLIENT_ID et l'OS_USERNAME 'employee69', ce qui peut indiquer une attaque par dictionnaire. Bien que aucune action suspecte n'a été effectuée après ces tentatives, il est important de surveiller cette activité pour éviter toute intrusion future.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Continuer à surveiller l'activité du CLIENT_ID '192.168.1.40', vérifier les comptes avec SYSDBA privilèges, ajuster la configuration de profil si nécessaire"
+      ],
+      "log_number": 52,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 14:01:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.40",
+        "OS_USERNAME": "employee69",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": null,
+      "justification": "Le log dénote une tentative d'exfiltration de données via un SELECT massif sur la table 'PRODUCTS' avec l'utilisation de la commande UNION pour exécuter une autre requête SQL (SELECT username, password FROM USERS). Cela constitue une violation sévère des bonnes pratiques de sécurité et représente un risque élevé pour les informations sensibles stockées dans la base de données.",
+      "severite": 9,
+      "actions_recommandees": [
+        "Interdire l'accès à la table 'PRODUCTS' aux utilisateurs non-DBA",
+        "Supprimer le compte APP_USER si c'est une utilisation abusive",
+        "Audit les accès nocturnes et week-end",
+        "Éliminer tous les privilèges de BACKDOOR sur les comptes existants"
+      ],
+      "log_number": 53,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 01:22:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "CREDIT_CARDS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.175",
+        "OS_USERNAME": "external",
+        "TERMINAL": "REMOTE"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "data_exfiltration"
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le client ID est constant (192.168.1.35) et le nombre de tentatives de connexion réussies (5) en moins de 5 minutes est élevé, ce qui correspond à un comportement typique d'une attaque par déni de service basée sur les tentatives brute force. De plus, l'utilisateur a réussi à effectuer une action SELECT après avoir réussi ses tentatives de connexion.",
+      "severite": 7,
+      "actions_recommandees": [
+        "Éviter la connexion du client ID constant et vérifier les utilisateurs qui ont des accès répétés",
+        "Vérifier l'authentification des utilisateurs avec un compte DBA",
+        "Configurer une limite sur le nombre d'essais de connexion"
+      ],
+      "log_number": 54,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-09 07:46:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.35",
+        "OS_USERNAME": "employee16",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le client ID (192.168.1.47) est le même pour toutes les tentatives de connexion, ce qui suggère un attaque par dictionnaire. De plus, il y a eu 5 tentatives de connexion en moins de 5 minutes, ce qui correspond à l'un des red flags mentionnés dans la section sur les tentatives brute force.",
+      "severite": 7,
+      "actions_recommandees": [
+        "Éliminer le client ID suspect du système",
+        "Augmenter le nombre d'essais de connexion interdits",
+        "Vérifier l'utilisation des comptes avec SYSDBA privilèges"
+      ],
+      "log_number": 55,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-09 12:27:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.47",
+        "OS_USERNAME": "employee31",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le logiciel n'inclut pas de signes distinctifs d'attaques telles que des tentatives de brute force, d'exfiltration de données, de reconnaissance ou d'escalade de privilèges. Cependant, il est noté qu'il y a eu 5 tentatives de connexion échouées en moins de 5 minutes (un signe potentiel de brute force), ce qui peut être considéré comme suspect dans le contexte des règles de monitoring red flags.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Examiner les utilisateurs avec SYSDBA privilèges",
+        "Vérifier l'activité sur la base de données CUSTOMERS"
+      ],
+      "log_number": 56,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 15:05:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.46",
+        "OS_USERNAME": "employee7",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 9,
+      "type_anomalie": null,
+      "justification": "Le seul événement noté dans le log est un INSERT sur la table PRODUCTS. Il n'y a pas d'éléments qui indiquent une anomalie ou une attaque. Cependant, compte tenu de l'historique mentionné (exfiltration des identifiants utilisateurs), il est recommandé de surveiller ce type d'activité avec attention.",
+      "severite": 5,
+      "actions_recommandees": [
+        "Surveiller attentivement les activités sur la table PRODUCTS",
+        "Auditer tous les logs pour détecter potentiellement d'autres tentatives d'exfiltration"
+      ],
+      "log_number": 57,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 12:11:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "PRODUCTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.13",
+        "OS_USERNAME": "employee6",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": "Tentatives brute force",
+      "justification": "Le client ID est constant (192.168.1.47) et plusieurs tentatives de connexion ont été effectuées par différents utilisateurs (SCOTT, CUSTOMERS). Cela correspond à un comportement typique d'une attaque de brute force.",
+      "severite": 5,
+      "actions_recommandees": [
+        "Élaborer une stratégie de gestion des accès plus stricte",
+        "Vérifier les comptes avec SYSDBA privilèges",
+        "Audit les utilisateurs qui ont effectué ces tentatives"
+      ],
+      "log_number": 58,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-07 11:04:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "CUSTOMERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.47",
+        "OS_USERNAME": "employee57",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 40,
+      "type_anomalie": null,
+      "justification": "Le log d'audit indique une tentative d'insertion dans la base de données DEPARTMENTS. Bien que cela ne soit pas immédiatement suspect, il est important de noter qu'il a été effectué par un utilisateur nommé APP_USER qui semble légitime (utilisateur analyste). Cependant, sans plus de contexte sur l'activité précédente et les activités suivantes, ce n'est pas suffisamment anormal pour être classé critique.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier la trace d'utilisation du compte APP_USER pour détecter toute anomalie"
+      ],
+      "log_number": 59,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 13:53:25",
+        "USERNAME": "APP_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.32",
+        "OS_USERNAME": "employee84",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 98,
+      "type_anomalie": null,
+      "justification": "Le log indique une série d'essais de connexion avec des utilisateurs communs (admin, root, system, oracle) avant un succès. Cela correspond à la red flag 'Usernames communs testés (admin, root, oracle, test)', ce qui suggère une tentative de reconnaissance système ou d'attaque brute force.",
+      "severite": 7,
+      "actions_recommandees": [
+        "Éviter les connexions non sécurisées à ces utilisateurs",
+        "Vérifier la sécurité des comptes et des droits utilisateur"
+      ],
+      "log_number": 60,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-07 07:37:25",
+        "USERNAME": "ANALYST",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.38",
+        "OS_USERNAME": "employee67",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 40,
+      "type_anomalie": null,
+      "justification": "Le log d'audit ne montre pas directement de comportements anormaux ou malveillants. Cependant, il est important de noter que l'utilisateur 'REPORT_USER' effectue une action d'insertion sur la table 'DEPARTMENTS'. Bien qu'il n'y ait pas d'autres logs indiquant des tentatives de compromission, cette activité peut être suspecte si elle ne correspond pas à un usage normal pour cet utilisateur. Il serait utile de vérifier les habilitations et les permissions de l'utilisateur 'REPORT_USER' sur la table 'DEPARTMENTS'.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier les habilitations et les permissions de l'utilisateur 'REPORT_USER' sur la table 'DEPARTMENTS', en particulier si elle n'est pas normalement utilisée par cet utilisateur"
+      ],
+      "log_number": 61,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-08 15:29:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.11",
+        "OS_USERNAME": "employee57",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 98,
+      "type_anomalie": "Reconnaissance",
+      "justification": "Le log indique une tentative de reconnaissance système par un utilisateur non-DBA (SCOTT) avec l'utilisation d'une commande SQL potentiellement dangereuse ('DROP TABLE USERS--'). Cette action est suspecte car elle pourrait être utilisée pour identifier les tables présentes dans la base de données, ce qui peut conduire à des actions plus avancées comme l'exfiltration de données ou l'escalade de privilèges.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Interdire l'accès à cette commande spécifique pour cet utilisateur",
+        "Vérifier les autres activités du compte SCOTT et éventuellement bloquer ses accès s'il y a d'autres comportements anormaux"
+      ],
+      "log_number": 62,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-05 01:27:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "CUSTOMERS WHERE email=''; DROP TABLE USERS--",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.107",
+        "OS_USERNAME": "attacker",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "sql_injection"
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le log indique une tentative d'accès à la vue de base de données DBA_TAB_PRIVS, qui est généralement réservée aux utilisateurs avec des privilèges spéciaux. Cela pourrait être suspect si l'utilisateur n'a pas déjà accès à cette vue ou s'il ne fait pas partie du groupe de permissions approprié.",
+      "severite": 4,
+      "actions_recommandees": [
+        "Examiner les permissions utilisateur HR_USER pour voir s'ils ont le droit d'accéder à DBA_TAB_PRIVS",
+        "Vérifier si l'utilisateur a été affecté par une modification des rôles ou privilèges récente"
+      ],
+      "log_number": 63,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-08 01:02:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "UPDATE",
+        "OBJECT_NAME": "DBA_TAB_PRIVS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.175",
+        "OS_USERNAME": "user15",
+        "TERMINAL": "REMOTE"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "off_hours_access"
+    },
+    {
+      "classification": "critique",
+      "confiance": 90,
+      "type_anomalie": "multiple failed login attempts (brute force attack)",
+      "justification": "Le client ID est constant (192.168.1.50) et le nombre de tentatives de connexion échouées (4) en moins de 5 minutes est élevé, ce qui correspond à un signe typique d'une attaque brute force. De plus, l'utilisateur a réussi à obtenir une connexion après ces tentatives, indiquant une tentative d'escalade de privilèges.",
+      "severite": 7,
+      "actions_recommandees": [
+        "Élever la limite du nombre d'essais de connexion échoués",
+        "Vérifier les comptes avec SYSDBA pour détecter des backdoors",
+        "Audit les accès à DBA_TAB_PRIVS et autres objets sensibles"
+      ],
+      "log_number": 64,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 16:55:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "ORDERS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.50",
+        "OS_USERNAME": "employee26",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 40,
+      "type_anomalie": null,
+      "justification": "Le logiciel indique une action SELECT sur un objet nommé DEPARTMENTS, qui est une action normale dans le cadre d'une utilisation légitime de la base de données. Cependant, il n'y a pas d'autres informations spécifiques pour classer ce comme suspect ou critique. Il ne contient aucune indication directe de comportements anormaux tels que des tentatives de brute force, d'exfiltration de données, d'escalade de privilèges, etc.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Aucune action immédiate recommandée car aucune anomalie spécifique n'est détectée"
+      ],
+      "log_number": 65,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 11:16:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.39",
+        "OS_USERNAME": "employee90",
+        "TERMINAL": "LAPTOP5"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "critique",
+      "confiance": 98,
+      "type_anomalie": "SQL Injection",
+      "justification": "Le log indique une tentative de SQL Injection avec un objet nommé 'PRODUCTS WHERE id=1' OR 'a'='a'. Cette requête est suspecte car elle contient un OR 1=1, ce qui est un pattern classique d'injection SQL. De plus, l'utilisateur HR_USER n'est pas un utilisateur normal et le terminal UNKNOWN indique une activité inconnue.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Interdire les connexions de l'utilisateur HR_USER",
+        "Vérifier la sécurité des scripts utilisés par cette connexion",
+        "Analyser les activités d'autres utilisateurs liés à ce terminal"
+      ],
+      "log_number": 66,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-04 22:46:25",
+        "USERNAME": "HR_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "PRODUCTS WHERE id=1' OR 'a'='a",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.225",
+        "OS_USERNAME": "malicious",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "sql_injection"
+    },
+    {
+      "classification": "critique",
+      "confiance": 100,
+      "type_anomalie": null,
+      "justification": "Le log indique un login réussi (RETURNCODE = 1017) mais il est important de noter que l'IP source (192.168.1.233) a déjà été identifiée comme potentiellement suspecte par les red flags absolus, notamment le fait qu'il s'agit d'un login à la base de données à 09:45 (hors heures de travail), ce qui est un signe clair de tentative de brute force. De plus, l'utilisateur OS_USERNAME 'attacker' indique une activité malveillante potentiellement manquée.",
+      "severite": 8,
+      "actions_recommandees": [
+        "Bloquer immédiatement IP source (firewall)",
+        "Lock le compte compromis",
+        "Auditer tous les logs 7 derniers jours",
+        "Vérifier intégrité données (checksums)",
+        "Escalade SOC/CSIRT"
+      ],
+      "log_number": 67,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-06 09:45:26",
+        "USERNAME": "ROOT",
+        "ACTION": "LOGON",
+        "OBJECT_NAME": "DATABASE",
+        "RETURNCODE": 1017,
+        "CLIENT_ID": "192.168.1.233",
+        "OS_USERNAME": "attacker",
+        "TERMINAL": "UNKNOWN"
+      },
+      "true_label": "suspicious",
+      "true_anomaly_type": "brute_force"
+    },
+    {
+      "classification": "suspect",
+      "confiance": 40,
+      "type_anomalie": null,
+      "justification": "Le log d'audit ne montre pas de comportements anormaux ou malveillants. Cependant, il est suspect car il concerne un utilisateur non-DBA (REPORT_USER) effectuant une opération d'insertion sur la base de données DEPARTMENTS. Bien que cela soit normal pour certains utilisateurs, il pourrait indiquer une reconnaissance initiale dans le système.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Continuer à surveiller l'utilisateur REPORT_USER et son comportement"
+      ],
+      "log_number": 68,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-03 17:12:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "INSERT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.43",
+        "OS_USERNAME": "employee82",
+        "TERMINAL": "SERVER2"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 60,
+      "type_anomalie": null,
+      "justification": "Le logiciel indique une action SELECT sur un objet nommé DEPARTMENTS. C'est une activité normale dans la base de données Oracle, mais sans contexte supplémentaire (comme d'autres logs ou le contexte historique fourni), il ne peut pas être classé comme suspect en soi. Il n'y a pas de signes d'escalade de privilèges, d'exfiltration de données, de reconnaissance ou d'autres comportements malveillants.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Continuer à surveiller cette activité"
+      ],
+      "log_number": 69,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-09 13:42:25",
+        "USERNAME": "REPORT_USER",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "DEPARTMENTS",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.22",
+        "OS_USERNAME": "employee17",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    },
+    {
+      "classification": "suspect",
+      "confiance": 50,
+      "type_anomalie": null,
+      "justification": "Le logiciel indique une action SELECT sur la table EMPLOYEES par l'utilisateur SCOTT. Bien que cela ne soit pas immédiatement suspect, il est important de noter qu'il s'agit d'une opération SELECT qui n'est pas courante pour un utilisateur normal (par exemple, un développeur). Dans le contexte des vulnérabilités communes et du monitoring rouge, aucune anomalie spécifique ne semble immédiatement émerger. Cependant, cela pourrait être une alerte d'audit supplémentaire.",
+      "severite": 3,
+      "actions_recommandees": [
+        "Vérifier l'historique des actions de SCOTT pour EMPLOYEES"
+      ],
+      "log_number": 70,
+      "log_entry": {
+        "TIMESTAMP": "2026-01-07 11:07:25",
+        "USERNAME": "SCOTT",
+        "ACTION": "SELECT",
+        "OBJECT_NAME": "EMPLOYEES",
+        "RETURNCODE": 0,
+        "CLIENT_ID": "192.168.1.25",
+        "OS_USERNAME": "employee40",
+        "TERMINAL": "WORKSTATION1"
+      },
+      "true_label": "normal",
+      "true_anomaly_type": null
+    }
+  ]
+}
