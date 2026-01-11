@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from loguru import logger
 import sys
 import time
+import re
 
 logger.remove()
 logger.add(sys.stdout, format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | {message}")
@@ -30,6 +31,7 @@ class LLMEngine:
         self.provider = os.getenv('LLM_PROVIDER', 'claude').lower()
         self.prompts = self._load_prompts(prompts_file)
         self.client = None
+        self.model = None
         self.max_retries = 3
         self.retry_delay = 2
         
@@ -208,7 +210,7 @@ class LLMEngine:
         config = self.prompts
         
         for part in parts:
-            if part in config:
+            if isinstance(config, dict) and part in config:
                 config = config[part]
             else:
                 return None
@@ -225,80 +227,111 @@ class LLMEngine:
         return result
     
     def _parse_json_response(self, response: str) -> Dict:
-        """Parse une réponse JSON du LLM (gère les markdown fences et erreurs)"""
-        import re
-        
-        # Supprimer les markdown code fences si présents
-        response = response.strip()
-        if response.startswith('```'):
-            lines = response.split('\n')
-            response = '\n'.join(lines[1:-1]) if len(lines) > 2 else response
-            response = response.replace('```json', '').replace('```', '')
-        
+        """Parse JSON avec gestion markdown et extraction regex"""
+        # Étape 1 : Nettoyage de base
         response = response.strip()
         
-        # Tentative 1 : Parse direct
+        # Étape 2 : Supprimer le texte avant le JSON (très important pour Mistral)
+        # Chercher le premier {
+        json_start = response.find('{')
+        if json_start > 0:
+            # Il y a du texte avant, on le supprime
+            response = response[json_start:]
+        
+        # Étape 3 : Supprimer markdown code fences
+        if '```' in response:
+            # Extraire tout ce qui est entre ```json et ```
+            json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
+            if json_match:
+                response = json_match.group(1)
+            else:
+                # Supprimer juste les ```
+                response = response.replace('```json', '').replace('```', '')
+        
+        response = response.strip()
+        
+        # Étape 4 : Tentative parsing direct
         try:
             return json.loads(response)
         except json.JSONDecodeError as e:
+            logger.debug(f"Parsing direct échoué : {e}")
             logger.debug(f"JSON nettoyé : {response[:500]}...")
-            logger.warning("⚠️  Tentative d'extraction JSON avec regex...")
         
-        # Tentative 2 : Extraire JSON avec regex
-        json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
-        matches = re.findall(json_pattern, response, re.DOTALL)
-        
-        if matches:
-            for match in matches:
-                try:
-                    return json.loads(match)
-                except:
-                    continue
-        
-        # Tentative 3 : Réparer JSON commun (objet dans array sans accolades)
-        logger.warning("⚠️  Tentative de réparation JSON...")
-        
-        # Pattern : "risques": [ "titre": ... } au lieu de "risques": [ { "titre": ... } ]
-        # Ajouter { après [ si manquant
-        fixed = re.sub(
-            r'(\[\s*)"([^"]+)"\s*:', 
-            r'\1{\n"\2":', 
-            response
-        )
-        
-        # Ajouter } avant ] si manquant
-        fixed = re.sub(
-            r'"\s*\]\s*,',
-            r'"\n}\n],',
-            fixed
-        )
-        
+        # Étape 5 : Extraire avec regex (chercher {...})
         try:
-            return json.loads(fixed)
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Échec parsing JSON : {e}")
-            logger.debug(f"Réponse brute complète : {response[:1000]}")
+            # Trouver le JSON entre accolades
+            json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+            matches = re.findall(json_pattern, response, re.DOTALL)
             
-            # Retourner un objet d'erreur structuré
-            return {
-                "error": "Erreur parsing JSON",
-                "parse_error": str(e),
-                "raw_response": response[:500],
-                # Tenter d'extraire au moins le score si présent
-                "score_securite": self._extract_number(response, "score_securite"),
-                "niveau_risque": self._extract_string(response, "niveau_risque")
-            }
-
+            if matches:
+                # Prendre le plus long (probablement le JSON complet)
+                longest = max(matches, key=len)
+                return json.loads(longest)
+        except json.JSONDecodeError:
+            logger.debug("Extraction regex échouée")
+        
+        # Étape 6 : Nettoyage agressif
+        try:
+            # Supprimer virgules traînantes
+            cleaned = re.sub(r',(\s*[}\]])', r'\1', response)
+            
+            # Supprimer commentaires
+            cleaned = re.sub(r'//.*?\n', '\n', cleaned)
+            cleaned = re.sub(r'/\*.*?\*/', '', cleaned, flags=re.DOTALL)
+            
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+        
+        # Étape 7 : Extraction partielle par regex
+        logger.warning("⚠️  Utilisation du mode dégradé (extraction champs individuels)")
+        
+        result = {}
+        
+        # Extraire les strings
+        for match in re.finditer(r'"([^"]+)"\s*:\s*"([^"]*)"', response):
+            key, value = match.groups()
+            if key not in result:
+                result[key] = value
+        
+        # Extraire les nombres
+        for match in re.finditer(r'"([^"]+)"\s*:\s*(\d+(?:\.\d+)?)', response):
+            key, value = match.groups()
+            if key not in result:
+                result[key] = float(value) if '.' in value else int(value)
+        
+        # Extraire objets simples
+        for match in re.finditer(r'"([^"]+)"\s*:\s*\{([^{}]+)\}', response):
+            key, obj = match.groups()
+            if key not in result:
+                # Parser l'objet imbriqué
+                obj_dict = {}
+                for inner_match in re.finditer(r'"([^"]+)"\s*:\s*"([^"]*)"', obj):
+                    k, v = inner_match.groups()
+                    obj_dict[k] = v
+                result[key] = obj_dict if obj_dict else {"raw": obj}
+        
+        if result:
+            logger.info(f"✅ Extraction partielle : {len(result)} champs")
+            return result
+        
+        # Étape 8 : Échec total
+        logger.error("❌ Échec complet parsing JSON")
+        logger.debug(f"Réponse brute : {response[:1000]}")
+        
+        return {
+            "error": "Échec parsing JSON",
+            "raw_response": response[:1000]
+        }
+    
     def _extract_number(self, text: str, field: str) -> Optional[int]:
         """Extrait un nombre d'un champ JSON malformé"""
-        import re
         pattern = rf'"{field}"\s*:\s*(\d+)'
         match = re.search(pattern, text)
         return int(match.group(1)) if match else None
 
     def _extract_string(self, text: str, field: str) -> Optional[str]:
         """Extrait une string d'un champ JSON malformé"""
-        import re
         pattern = rf'"{field}"\s*:\s*"([^"]+)"'
         match = re.search(pattern, text)
         return match.group(1) if match else None
