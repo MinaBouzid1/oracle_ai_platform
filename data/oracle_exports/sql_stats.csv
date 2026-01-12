@@ -1,51 +1,51 @@
-SQL_ID,SQL_TEXT,EXECUTIONS,ELAPSED_TIME,CPU_TIME,BUFFER_GETS,DISK_READS,ROWS_PROCESSED
-sql_0000,SELECT * FROM employees WHERE department_id = 2,135,2248033,2131181,59591,38314,4932
-sql_0001,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",361,840642,1073480,44616,13756,3601
-sql_0002,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,818,2694878,724983,87536,8331,3794
-sql_0003,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",126,697039,248577,89581,42060,2924
-sql_0004,SELECT * FROM employees WHERE department_id = 3,133,1775032,82544,82698,5003,7200
-sql_0005,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,583,3312079,199033,59544,42582,1857
-sql_0006,SELECT * FROM employees WHERE department_id = 9,954,585202,69279,75651,25732,9324
-sql_0007,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 821,37,1257239,1150046,87091,34583,8610
-sql_0008,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,459,4755843,1453801,12330,19939,6866
-sql_0009,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,618,4365812,1599603,61108,9210,3983
-sql_0010,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,494,4214553,2681600,86482,2944,8988
-sql_0011,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,2,2251626,1985971,56076,36472,3347
-sql_0012,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",53,3379390,1973887,26006,43978,5327
-sql_0013,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,636,4699395,308124,30679,4927,2783
-sql_0014,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",440,4176383,2933671,32149,11735,6404
-sql_0015,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,514,421133,149434,95231,47160,2203
-sql_0016,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,676,2313260,1076326,96791,26920,1442
-sql_0017,SELECT * FROM employees WHERE department_id = 7,194,888109,1877951,21423,413,5953
-sql_0018,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 861,496,2340957,1319403,6214,20054,5018
-sql_0019,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 451,155,3651368,935015,40279,9166,5983
-sql_0020,SELECT * FROM employees WHERE department_id = 6,462,2491142,1503829,88515,34832,6913
-sql_0021,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,712,807645,161015,49529,14677,7191
-sql_0022,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,140,1802238,1513907,77560,46185,304
-sql_0023,SELECT * FROM employees WHERE department_id = 3,164,4225503,1276049,51746,48785,6738
-sql_0024,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",444,1812595,1091715,2218,15482,2294
-sql_0025,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,426,1900695,107569,62802,2908,8785
-sql_0026,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,219,2452572,2507112,99963,16347,929
-sql_0027,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,482,3583070,2823928,52620,36447,5950
-sql_0028,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,511,4917147,2103746,19701,40534,649
-sql_0029,SELECT * FROM employees WHERE department_id = 3,222,931934,778481,40987,44065,7355
-sql_0030,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 136,411,1029613,1991335,33409,41767,4820
-sql_0031,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 818,544,664668,749153,19660,506,9165
-sql_0032,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,495,1856797,2709659,44795,46771,1811
-sql_0033,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,317,776860,1214754,52439,22144,6028
-sql_0034,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,128,3225420,2256969,3878,13818,7638
-sql_0035,SELECT * FROM employees WHERE department_id = 8,159,4410094,662119,52190,35078,5766
-sql_0036,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,515,2502046,2985425,75684,34720,5610
-sql_0037,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,630,940198,1660634,62507,18432,532
-sql_0038,SELECT * FROM employees WHERE department_id = 5,954,4788630,206221,98349,6307,2318
-sql_0039,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,109,3050717,476760,3619,25318,2232
-sql_0040,DELETE FROM temp_table WHERE created_date < SYSDATE - 7,752,3606675,2506243,64635,9514,8076
-sql_0041,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",6,1407738,2920013,18852,27846,9568
-sql_0042,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 902,390,2713285,1376570,12371,16935,9731
-sql_0043,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,97,2070498,2800251,46149,31030,7801
-sql_0044,SELECT * FROM employees WHERE department_id = 9,6,2736078,2740435,47318,17706,2014
-sql_0045,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",376,2395563,841975,57386,20710,8129
-sql_0046,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,330,4583097,2040572,14058,15596,9333
-sql_0047,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30,881,1672954,1173287,60725,42653,9105
-sql_0048,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 171,589,144319,2996190,94298,24478,7873
-sql_0049,SELECT * FROM employees WHERE department_id = 8,932,4081997,1264622,9182,15853,9799
+SQL_ID,PLAN_HASH_VALUE,SCHEMA_NAME,EXECUTIONS,ELAPSED_TIME_SEC,CPU_TIME_SEC,BUFFER_GETS,DISK_READS,ROWS_PROCESSED,FETCHES,AVG_ELAPSED_SEC,SQL_TEXT
+b39m8n96gxk7c,0,SYS,4,33.23,31.79,196370,308,0,0,8.3073,"call dbms_autotask_prvt.run_autotask ( :0,:1 )"
+ampw9ddqufjd3,0,SYS,4,32.99,31.56,196020,304,4,0,8.2478,begin /*KAPI:capture*/ dbms_auto_index_internal.capture_sts; end;
+0qbzfjt00pbsx,0,SYS,11,13.92,1.26,1770,78,11,0,1.2658,"BEGIN   dbms_isched.log_dbms_output( :logid, :errs, :outputWasEnabled ); END; "
+7hnc5ucz8grnt,1869011320,SYS,4,13.22,13.0,2605,33,2362,2366,3.3039,SELECT VALUE(P) FROM TABLE(DBMS_SQLTUNE.SELECT_CURSOR_CACHE( BASIC_FILTER=> q'# (module is null or (module != '#' || :B1 || q'#' and module != '#' || :B2 || q'#')) and sql_text not like 'SELECT /* DS_
+2sxqgx5hx76qr,3312420081,SYS,2790,13.14,1.58,9494,304,43753,2790,0.0047,"select /*+ rule */ bucket, endpoint, col#, epvalue, epvalue_raw, ep_repeat_count, endpoint_enc from histgrm$ where obj#=:1 and intcol#=:2 and row#=:3 order by bucket"
+c61ajdcqbqn42,2532715356,SYS,2,11.97,11.85,1485,0,606,608,5.9827,"SELECT  new.sql_seq, old.plan_hash_value, sqlset_row(new.sql_id,new.force_matching_signature,  new.sql_text, new.object_list,  new.bind_data, new.parsing_schema_name,  new.module, new.action, new.elap"
+a8xypykqc348c,0,SYS,4,9.31,0.8,2032,89,4,0,2.3277,"BEGIN    dbms_stats_internal.advisor_setup_obj_filter(:tid, :rid, 'EXECUTE', FALSE); END;"
+0sbbcuruzd66f,2239883476,SYS,8342,9.1,2.44,24268,194,7457,8342,0.0011,"select /*+ rule */ bucket_cnt, row_cnt, cache_cnt, null_cnt, timestamp#, sample_size, minimum, maximum, distcnt, lowval, hival, density, col#, spare1, spare2, avgcln, minimum_enc, maximum_enc from his"
+fn0stp00nzmj6,2380431242,SYS,2,8.78,8.54,101,0,1202,1204,4.3921," SELECT /*+ first_rows(1) */ sql_id, force_matching_signature, sql_text, cast(NULL as SQL_OBJECTS) object_list, bind_data, parsing_schema_name, module, action, elapsed_time, cpu_time, buffer_gets, dis"
+3un99a0zwp4vd,1475428744,SYS,289,8.06,0.99,6049,181,2396,2685,0.0279,"select owner#,name,namespace,remoteowner,linkname,p_timestamp,p_obj#, nvl(property,0),subname,type#,flags,d_attrs from dependency$ d, obj$ o where d_obj#=:1 and p_obj#=obj#(+) order by order#"
+3un99a0zwp4vd,1475428744,SYS,222,4.16,0.99,3027,69,1090,1312,0.0188,"select owner#,name,namespace,remoteowner,linkname,p_timestamp,p_obj#, nvl(property,0),subname,type#,flags,d_attrs from dependency$ d, obj$ o where d_obj#=:1 and p_obj#=obj#(+) order by order#"
+8swypbbr0m372,570326988,SYS,222,3.78,0.23,2537,49,1046,1268,0.017,"select order#,columns,types from access$ where d_obj#=:1"
+8swypbbr0m372,570326988,SYS,289,3.59,0.39,4187,89,1779,2068,0.0124,"select order#,columns,types from access$ where d_obj#=:1"
+121ffmrc95v7g,2542797530,SYS,255,3.56,0.63,1671,36,277,532,0.014,"select i.obj#,i.ts#,i.file#,i.block#,i.intcols,i.type#,i.flags,i.property,i.pctfree$,i.initrans,i.maxtrans,i.blevel,i.leafcnt,i.distkey,i.lblkkey,i.dblkkey,i.clufac,i.cols,i.analyzetime,i.samplesize,i"
+4034bt1vcd4xr,0,SYSTEM,2,3.51,3.16,21000,554,2,0,1.7571,BEGIN     EXECUTE IMMEDIATE 'DROP USER testuser CASCADE'; EXCEPTION     WHEN OTHERS THEN NULL; END;
+a3jpjzh7mtwwp,2317816222,SYS,40,3.31,0.34,865,165,199,206,0.0827,"select /*+ index(idl_ub2$ i_idl_ub21) */ piece#,length,piece from idl_ub2$ where obj#=:1 and part=:2 and version=:3 order by piece#"
+5pazx6dft6hru,3949148835,SYS,342,3.18,0.2,2443,39,434,776,0.0093,"select o.owner#, o.name, o.namespace, o.obj#, d.d_timestamp,         nvl(d.property,0), o.type#, o.subname, o.status, d.d_attrs  from dependency$ d, obj$ o   where d.p_obj#=:1  and   (d.p_timestamp=nv"
+ga4mbqqxya48k,2035254952,SYS,3048,3.1,0.98,15678,84,3048,3048,0.001,"select t.ts#,t.file#,t.block#,nvl(t.bobj#,0),nvl(t.tab#,0),t.intcols,nvl(t.clucols,0),t.flags,t.pctfree$,t.pctused$,t.initrans,t.maxtrans,t.rowcnt,t.blkcnt,t.empcnt,t.avgspc,t.chncnt,t.avgrln,t.analyz"
+acmvv4fhdc9zh,813480514,SYS,858,3.09,1.07,3486,107,807,858,0.0036,"select obj#,type#,ctime,mtime,stime, status, dataobj#, flags, oid$, spare1, spare2, spare3, signature, spare7, spare8, spare9, nvl(dflcollid, 16382), creappid, creverid, modappid, modverid, crepatchid"
+acmvv4fhdc9zh,813480514,SYS,802,2.88,0.91,3190,49,784,802,0.0036,"select obj#,type#,ctime,mtime,stime, status, dataobj#, flags, oid$, spare1, spare2, spare3, signature, spare7, spare8, spare9, nvl(dflcollid, 16382), creappid, creverid, modappid, modverid, crepatchid"
+4y1y43113gv8f,1844266620,SYS,599,2.86,2.7,32624,5,9849,0,0.0048,delete from histgrm$ where obj#=:1 and intcol#=:2 and row#=:3
+01uy9sb7w8a9g,0,SYS,1,2.77,1.29,1416,44,1,0,2.7741," begin      dbms_aqadm_sys.remove_all_nondurablesub(:1, :2);   end;"
+2sawmaavc15ah,2656941262,SYS,2,2.6,2.59,27391,0,19,0,1.299,"MERGE /*+ dynamic_sampling(4) dynamic_sampling_est_cdn  */ INTO SYS.MON_MODS_ALL$ MM USING ( SELECT OBJ#, SUM(FLGS) FLGS FROM ( SELECT OBJ#, :B2 FLGS FROM ( SELECT TAB.OBJ# FROM (SELECT T.OBJ# OBJ#, T"
+9tfwp43fbwd5f,973414019,SYS,1,2.52,2.51,5087,5,7,1,2.5201,"SELECT * FROM (SELECT /*+ ordered full(t) use_hash(t)                OPT_PARAM('_parallel_syspls_obey_force' 'false') */ 'TABLE' OBJTYPE, U.NAME OWNNAME, O.NAME OBJNAME, NULL PARTNAME, NULL SUBPARTNAM"
+a3qq272c786ff,3154421282,SYS,48,2.47,0.36,549,8,48,48,0.0515," select st.dbid, st.atskid, nvl(ctl.instance_number, 0),         st.interval, st.max_run_time, st.enable,         nvl(ctl.mrct_task_time, 0),         nvl(ctl.suspendable_time, 0),         nvl(ctl.stat"
+34rznuxy8h2a4,0,SYS,659,2.45,2.28,56077,18,10732,0,0.0037,"insert into histgrm$(obj#,intcol#,row#,bucket,endpoint,col#,epvalue_raw,ep_repeat_count,endpoint_enc) values(:1,:2,:3,:4,:5,:6,:7,:8,:9)"
+9tt2m0mpc2qqp,1319326155,SYS,40,2.41,0.13,369,38,59,99,0.0602,"select /*+ index(idl_char$ i_idl_char1) */ piece#,length,piece from idl_char$ where obj#=:1 and part=:2 and version=:3 order by piece#"
+a3jpjzh7mtwwp,2317816222,SYS,10,2.35,0.14,297,107,67,67,0.2345,"select /*+ index(idl_ub2$ i_idl_ub21) */ piece#,length,piece from idl_ub2$ where obj#=:1 and part=:2 and version=:3 order by piece#"
+3un99a0zwp4vd,1475428744,SYS,68,2.06,0.18,718,31,199,267,0.0303,"select owner#,name,namespace,remoteowner,linkname,p_timestamp,p_obj#, nvl(property,0),subname,type#,flags,d_attrs from dependency$ d, obj$ o where d_obj#=:1 and p_obj#=obj#(+) order by order#"
+ga4mbqqxya48k,2035254952,SYS,262,2.03,0.39,1346,47,262,262,0.0078,"select t.ts#,t.file#,t.block#,nvl(t.bobj#,0),nvl(t.tab#,0),t.intcols,nvl(t.clucols,0),t.flags,t.pctfree$,t.pctused$,t.initrans,t.maxtrans,t.rowcnt,t.blkcnt,t.empcnt,t.avgspc,t.chncnt,t.avgrln,t.analyz"
+121ffmrc95v7g,2542797530,SYS,1012,2.0,1.04,7021,43,1953,2965,0.002,"select i.obj#,i.ts#,i.file#,i.block#,i.intcols,i.type#,i.flags,i.property,i.pctfree$,i.initrans,i.maxtrans,i.blevel,i.leafcnt,i.distkey,i.lblkkey,i.dblkkey,i.clufac,i.cols,i.analyzetime,i.samplesize,i"
+6h3cwmunz5z8q,2968095032,SYS,1038,1.86,0.34,2082,29,0,1038,0.0018,"select col#, grantee#, privilege#,max(mod(nvl(option$,0),2)), max(bitand(nvl(option$,0), 8) /8), max(bitand(nvl(option$,0), 16) /16), max(bitand(nvl(option$,0),64) /64), max(bitand(nvl(option$,0), 128"
+c61ajdcqbqn42,2532715356,SYS,1,1.82,1.76,3426,34,504,505,1.8235,"SELECT  new.sql_seq, old.plan_hash_value, sqlset_row(new.sql_id,new.force_matching_signature,  new.sql_text, new.object_list,  new.bind_data, new.parsing_schema_name,  new.module, new.action, new.elap"
+bj1mt6pa09d3p,0,SYS,4,1.82,1.76,2807,12,4,0,0.4538," BEGIN    DBMS_SCHEDULER.SET_JOB_ARGUMENT_VALUE (      job_name   => :job_name,      argument_position   => 2,      argument_value      => :job_magic_num);    DBMS_SCHEDULER.SET_ATTRIBUTE(      name  "
+fh5ufah919kun,1697022209,SYS,10,1.81,0.06,127,20,22,32,0.1811,"select /*+ index(idl_sb4$ i_idl_sb41) */ piece#,length,piece from idl_sb4$ where obj#=:1 and part=:2 and version=:3 order by piece#"
+fh5ufah919kun,1697022209,SYS,40,1.74,0.12,403,43,77,117,0.0434,"select /*+ index(idl_sb4$ i_idl_sb41) */ piece#,length,piece from idl_sb4$ where obj#=:1 and part=:2 and version=:3 order by piece#"
+8594ra3zcssdf,344327406,SYS,9,1.68,1.68,747,0,13,22,0.1871,"SELECT /*+ no_merge(v) no_push_pred(v)                   OPT_PARAM('_parallel_syspls_obey_force' 'false') */ '""'||LOC_IND_OWNER||'""' IND_OWNER, '""'||LOC_IND_NAME||'""' IND_NAME, '""'||LOC_PART_NAME||'""'"
+g0t052az3rx44,3765558045,SYS,281,1.68,0.26,1168,17,3889,4170,0.006,"select name,intcol#,segcol#,type#,length,nvl(precision#,0),decode(type#,2,nvl(scale,-127/*MAXSB1MINAL*/),178,scale,179,scale,180,scale,181,scale,182,scale,183,scale,231,scale,0),null$,fixedstorage,nvl"
+bw0b5zv1wxryq,2272550588,SYS,4,1.64,0.04,41,4,4,4,0.4112,"SELECT UPPER(NAME), RULE_TYPE, DESCRIPTION, FLAGS FROM SYS.X$QOSADVRULEDEF WHERE RULE_ID = :B1 "
+0yn07bvqs30qj,866645418,SYS,466,1.49,0.08,1440,11,420,466,0.0032,"select pctfree_stg, pctused_stg, size_stg,initial_stg, next_stg, minext_stg, maxext_stg, maxsiz_stg, lobret_stg,mintim_stg, pctinc_stg, initra_stg, maxtra_stg, optimal_stg, maxins_stg,frlins_stg, flag"
+03guhbfpak0w7,3246118364,SYS,40,1.49,0.1,330,29,45,79,0.0372,"select /*+ index(idl_ub1$ i_idl_ub11) */ piece#,length,piece from idl_ub1$ where obj#=:1 and part=:2 and version=:3 order by piece#"
+6h3cwmunz5z8q,2968095032,SYS,230,1.48,0.09,462,10,0,230,0.0064,"select col#, grantee#, privilege#,max(mod(nvl(option$,0),2)), max(bitand(nvl(option$,0), 8) /8), max(bitand(nvl(option$,0), 16) /16), max(bitand(nvl(option$,0),64) /64), max(bitand(nvl(option$,0), 128"
+5auuumydvc0ym,0,SYS,204,1.46,0.61,6945,0,1776,0,0.0072,"INSERT INTO WRI$_SQLSET_PLAN_LINES VALUES (:B1 ,:B2 ,:B3 ,:B4 ,:B5 ,:B6 ,:B7 ,:B8 ,:B9 ,:B10 ,:B11 ,:B12 ,:B13 ,:B14 ,:B15 ,:B16 ,:B17 ,:B18 ,:B19 ,:B20 ,:B21 ,:B22 ,:B23 ,:B24 ,:B25 ,:B26 ,:B27 ,:B28"
+dycmpuj6apqjs,2026059959,SYS,142,1.45,0.09,1230,9,279,284,0.0102,"select pc.intcol#, pc.col# , pc.type#, pc.spare1, pc.segcol#, pc.charsetform,   nvl(c.collintcol#, 0), nvl(c2.type#, 0), nvl(c2.charsetid, 0),    nvl(c2.charsetform , 0), nvl(c2.collid, 0) from partco"
+87gaftwrm2h68,1072382624,SYS,911,1.41,0.38,2392,1,410,911,0.0015,"select o.owner#,o.name,o.namespace,o.remoteowner,o.linkname,o.subname from obj$ o where o.obj#=:1"
+c61ajdcqbqn42,2532715356,SYS,1,1.38,1.38,1438,0,183,184,1.3826,"SELECT  new.sql_seq, old.plan_hash_value, sqlset_row(new.sql_id,new.force_matching_signature,  new.sql_text, new.object_list,  new.bind_data, new.parsing_schema_name,  new.module, new.action, new.elap"
+9tt2m0mpc2qqp,1319326155,SYS,10,1.38,0.27,133,33,21,31,0.1382,"select /*+ index(idl_char$ i_idl_char1) */ piece#,length,piece from idl_char$ where obj#=:1 and part=:2 and version=:3 order by piece#"
+g0t052az3rx44,3765558045,SYS,1026,1.3,0.6,4179,22,15703,16729,0.0013,"select name,intcol#,segcol#,type#,length,nvl(precision#,0),decode(type#,2,nvl(scale,-127/*MAXSB1MINAL*/),178,scale,179,scale,180,scale,181,scale,182,scale,183,scale,231,scale,0),null$,fixedstorage,nvl"
+8swypbbr0m372,570326988,SYS,68,1.27,0.12,410,26,137,205,0.0187,"select order#,columns,types from access$ where d_obj#=:1"
+fn0stp00nzmj6,2380431242,SYS,1,1.27,1.22,1907,32,504,505,1.2669," SELECT /*+ first_rows(1) */ sql_id, force_matching_signature, sql_text, cast(NULL as SQL_OBJECTS) object_list, bind_data, parsing_schema_name, module, action, elapsed_time, cpu_time, buffer_gets, dis"

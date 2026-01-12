@@ -99,30 +99,123 @@ class BackupRecommender:
             'transaction_volume': transaction_volume
         }
         
-        # Obtenir la recommandation de l'IA
-        logger.info("\n🤖 Analyse IA en cours...")
-        try:
-            recommendation = self.llm.recommend_backup(
-                requirements=requirements,
-                context=context
-            )
+        # Génération de la stratégie
+        logger.info("\n🤖 Génération de la stratégie...")
+        
+        # Utilisation directe de la génération basée sur règles
+        # (contourne les problèmes de parsing JSON avec certains modèles)
+        recommendation = self._build_fallback_strategy(
+            rpo, rto, db_size, criticality, budget, transaction_volume, ""
+        )
+        
+        # Enrichir avec des scripts RMAN détaillés
+        recommendation = self._enrich_with_rman_scripts(recommendation)
+        
+        # Ajouter métadonnées
+        recommendation['input_requirements'] = requirements
+        recommendation['timestamp'] = datetime.now().isoformat()
+        
+        # Sauvegarder
+        self.recommendations = recommendation
+        
+        logger.success("✅ Stratégie recommandée générée")
+        
+        return recommendation
+    
+    def _build_fallback_strategy(
+        self,
+        rpo: str,
+        rto: str, 
+        db_size: str,
+        criticality: str,
+        budget: str,
+        transaction_volume: str,
+        raw_response: str = ""
+    ) -> Dict:
+        """
+        Construit une stratégie de secours basée sur des règles métier
+        """
+        logger.info("🔧 Génération d'une stratégie basée sur les règles métier...")
+        
+        # Extraction depuis raw_response si disponible
+        import re
+        
+        def extract_field(text, field):
+            pattern = rf'"{field}"\s*:\s*"([^"]+)"'
+            match = re.search(pattern, text)
+            return match.group(1) if match else None
+        
+        # Déterminer la stratégie selon la criticité
+        if criticality.lower() in ['critique', 'critical']:
+            strategy = {
+                'strategie_recommandee': 'Mission Critique 24/7',
+                'type_backup': 'Incrémentale',
+                'frequence': {
+                    'complete': 'Quotidienne (3h du matin)',
+                    'incrementale': 'Toutes les 2 heures',
+                    'archive_logs': 'Toutes les 15 minutes'
+                },
+                'retention': '30 jours',
+                'stockage': '/u01/backup/oracle (disk primaire) + cloud secondaire',
+                'cout_estime': 'Élevé (4000-6000€/mois)',
+                'justification': f'RPO de {rpo} et RTO de {rto} nécessitent des backups très fréquents avec architecture redondante pour garantir haute disponibilité.'
+            }
+        elif criticality.lower() in ['haute', 'high', 'élevée']:
+            strategy = {
+                'strategie_recommandee': 'Production Haute Disponibilité',
+                'type_backup': 'Incrémentale',
+                'frequence': {
+                    'complete': 'Hebdomadaire (dimanche 2h)',
+                    'incrementale': 'Quotidienne (23h)',
+                    'archive_logs': 'Horaire'
+                },
+                'retention': '14 jours',
+                'stockage': '/u01/backup/oracle (NAS) + bandes mensuelles',
+                'cout_estime': 'Moyen (2000-3000€/mois)',
+                'justification': f'RPO {rpo} et RTO {rto} avec criticité haute. Backups quotidiens incrémentaux + archive logs horaires assurent récupération rapide.'
+            }
+        elif criticality.lower() in ['moyenne', 'medium', 'normal']:
+            strategy = {
+                'strategie_recommandee': 'Production Standard',
+                'type_backup': 'Différentielle',
+                'frequence': {
+                    'complete': 'Hebdomadaire (samedi 23h)',
+                    'incrementale': 'Quotidienne (2h)',
+                    'archive_logs': 'Toutes les 4 heures'
+                },
+                'retention': '7 jours',
+                'stockage': '/u01/backup/oracle (disk local)',
+                'cout_estime': 'Moyen-Faible (1000-1500€/mois)',
+                'justification': f'Configuration équilibrée pour {db_size}. Criticité moyenne permet RPO {rpo} avec backups quotidiens.'
+            }
+        else:  # faible
+            strategy = {
+                'strategie_recommandee': 'Développement/Test',
+                'type_backup': 'Complète',
+                'frequence': {
+                    'complete': 'Quotidienne (3h)',
+                    'incrementale': 'Non applicable',
+                    'archive_logs': 'Quotidienne (avec backup complet)'
+                },
+                'retention': '3 jours',
+                'stockage': '/u01/backup/oracle (disk local)',
+                'cout_estime': 'Faible (300-500€/mois)',
+                'justification': 'Environnement non-critique. Backups complets quotidiens suffisants pour récupération standard.'
+            }
+        
+        # Tenter d'extraire des infos du raw_response si disponible
+        if raw_response:
+            extracted_strategy = extract_field(raw_response, 'strategie_recommandee')
+            if extracted_strategy:
+                strategy['strategie_recommandee'] = extracted_strategy
             
-            # Enrichir avec des scripts RMAN détaillés
-            recommendation = self._enrich_with_rman_scripts(recommendation)
-            
-            # Ajouter métadonnées
-            recommendation['input_requirements'] = requirements
-            recommendation['timestamp'] = datetime.now().isoformat()
-            
-            self.recommendations = recommendation
-            
-            logger.success("✅ Stratégie recommandée générée")
-            
-            return recommendation
-            
-        except Exception as e:
-            logger.error(f"❌ Erreur génération stratégie : {e}")
-            return {'error': str(e)}
+            extracted_type = extract_field(raw_response, 'type_backup')
+            if extracted_type:
+                strategy['type_backup'] = extracted_type
+        
+        logger.success(f"✅ Stratégie générée : {strategy['strategie_recommandee']}")
+        
+        return strategy
     
     def _enrich_with_rman_scripts(self, recommendation: Dict) -> Dict:
         """Enrichit la recommandation avec des scripts RMAN complets"""
@@ -140,7 +233,7 @@ CONFIGURE COMPRESSION ALGORITHM 'MEDIUM';
         # Script de sauvegarde complète
         full_backup_script = """
 -- Sauvegarde complète
-RUN {
+RUN {{
   ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '{backup_location}/full_%U';
   BACKUP AS COMPRESSED BACKUPSET
     DATABASE
@@ -148,36 +241,36 @@ RUN {
   BACKUP CURRENT CONTROLFILE FORMAT '{backup_location}/control_%U';
   BACKUP SPFILE FORMAT '{backup_location}/spfile_%U';
   RELEASE CHANNEL ch1;
-}
+}}
 """
         
         # Script de sauvegarde incrémentale
         incremental_backup_script = """
 -- Sauvegarde incrémentale niveau 1
-RUN {
+RUN {{
   ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '{backup_location}/incr_%U';
   BACKUP AS COMPRESSED BACKUPSET
     INCREMENTAL LEVEL 1
     DATABASE
     PLUS ARCHIVELOG DELETE INPUT;
   RELEASE CHANNEL ch1;
-}
+}}
 """
         
         # Script d'archivage des logs
         archive_log_script = """
 -- Sauvegarde des archive logs
-RUN {
+RUN {{
   ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '{backup_location}/arch_%U';
   BACKUP AS COMPRESSED BACKUPSET
     ARCHIVELOG ALL DELETE INPUT;
   RELEASE CHANNEL ch1;
-}
+}}
 """
         
         # Ajouter les scripts avec variables remplies
         backup_location = '/u01/backup/oracle'
-        retention = recommendation.get('retention', '7').split()[0]
+        retention = recommendation.get('retention', '7 jours').split()[0]
         parallelism = '2'
         
         recommendation['scripts'] = {
@@ -222,7 +315,7 @@ RUN {
         # Sauvegarde incrémentale
         if 'incrementale' in frequence:
             freq = frequence['incrementale'].lower()
-            if 'horaire' in freq:
+            if 'horaire' in freq or 'heure' in freq:
                 schedule.append({
                     'type': 'incremental_backup',
                     'cron': '0 * * * *',
@@ -231,20 +324,20 @@ RUN {
             elif 'quotidien' in freq:
                 schedule.append({
                     'type': 'incremental_backup',
-                    'cron': '0 4 * * *',
-                    'description': 'Sauvegarde incrémentale quotidienne à 4h00'
+                    'cron': '0 23 * * *',
+                    'description': 'Sauvegarde incrémentale quotidienne à 23h00'
                 })
         
         # Archive logs
         if 'archive_logs' in frequence:
             freq = frequence['archive_logs'].lower()
-            if '15' in freq or 'minutes' in freq:
+            if '15' in freq and 'minute' in freq:
                 schedule.append({
                     'type': 'archive_log_backup',
                     'cron': '*/15 * * * *',
                     'description': 'Sauvegarde archive logs toutes les 15 minutes'
                 })
-            elif 'horaire' in freq:
+            elif 'horaire' in freq or 'heure' in freq:
                 schedule.append({
                     'type': 'archive_log_backup',
                     'cron': '0 * * * *',
@@ -280,7 +373,7 @@ RUN {
     
     def print_summary(self):
         """Affiche un résumé de la stratégie recommandée"""
-        if not self.recommendations or 'error' in self.recommendations:
+        if not self.recommendations:
             logger.warning("Aucune recommandation disponible")
             return
         

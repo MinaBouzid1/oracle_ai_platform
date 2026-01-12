@@ -1,6 +1,7 @@
 """
 Module 5 : Query Optimizer
 Analyse et optimisation intelligente des requêtes Oracle
+Compatible avec Oracle réel via Docker
 """
 
 import os
@@ -10,272 +11,380 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 from loguru import logger
 import sys
+from pathlib import Path
 
 from llm_engine import LLMEngine
 from rag_setup import OracleRAGSystem
-from data_extractor import OracleDataExtractor
+from oracle_connector import OracleConnector
 
 logger.remove()
 logger.add(sys.stdout, format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | {message}")
 
 
 class QueryOptimizer:
-    """Optimiseur de requêtes Oracle avec IA"""
+    """Analyseur et optimiseur de requêtes SQL avec IA"""
     
     def __init__(self):
+        """
+        Args:
+            llm_engine: Moteur LLM pour l'analyse
+            rag_system: Système RAG pour le contexte
+        """
         self.llm = LLMEngine()
         self.rag = OracleRAGSystem()
-        self.extractor = OracleDataExtractor(use_mock=True)
-        self.optimization_results = []
+        self.output_dir = Path("data/oracle_exports/query_analysis")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        logger.info("🚀 Initialisation du Query Optimizer")
-    
-    def analyze_slow_queries(
-        self, 
-        data_dir='data/oracle_exports',
-        top_n: int = 10,
-        threshold_elapsed: int = 1000000  # microsec (1 seconde)
-    ) -> List[Dict]:
+        # Connecteur Oracle
+        self.oracle = OracleConnector()
+        
+    def analyze_query(self, sql_query: str, sql_id: str = None) -> Dict:
         """
-        Analyse les requêtes lentes et propose des optimisations
+        Analyse complète d'une requête SQL
         
         Args:
-            data_dir: Répertoire des données Oracle
-            top_n: Nombre de requêtes à analyser
-            threshold_elapsed: Seuil de temps (en microsec)
-        
+            sql_query: Requête SQL à analyser
+            sql_id: ID SQL Oracle (optionnel)
+            
         Returns:
-            Liste des analyses d'optimisation
+            Dictionnaire avec analyse complète
         """
-        logger.info("="*60)
-        logger.info("⚡ ANALYSE D'OPTIMISATION DES REQUÊTES")
-        logger.info("="*60)
+        logger.info(f"🔍 Analyse de la requête : {sql_query[:100]}...")
         
-        # Charger les stats SQL
+        # 1. Récupérer le contexte RAG
+        context_docs = self.rag.retrieve_context(
+            f"Comment optimiser cette requête : {sql_query}",
+            top_k=3
+        )
+        
+        # Extraire le texte des documents de contexte
+        rag_context = "\n\n".join([doc['document'] for doc in context_docs])
+        
+        # 2. Récupérer le plan d'exécution si SQL_ID fourni
+        execution_plan = ""
+        if sql_id and self.oracle.connection:
+            plan_df = self.oracle.get_execution_plan(sql_id)
+            if not plan_df.empty:
+                execution_plan = "\n".join([
+                    f"  {row['OPERATION']} (Cost: {row['COST']})"
+                    for _, row in plan_df.iterrows()
+                ])
+        
+        # 3. Analyser avec le LLM - CORRECTION ICI
+        analysis = self.llm.analyze_query(
+            sql_text=sql_query,  # Changé de sql_query à sql_text
+            plan=execution_plan if execution_plan else "Plan non disponible",  # Changé de execution_plan à plan
+            metrics={},  # Ajouté metrics vide
+            context=rag_context
+        )
+        
+        return analysis
+    
+    def analyze_slow_queries(self, min_elapsed_sec: float = 1.0, limit: int = 20) -> List[Dict]:
+        """
+        Analyse toutes les requêtes lentes de la base
+        
+        Args:
+            min_elapsed_sec: Temps minimum (secondes)
+            limit: Nombre max de requêtes à analyser
+            
+        Returns:
+            Liste des analyses
+        """
+        logger.info(f"🔍 Récupération des requêtes lentes (> {min_elapsed_sec}s)...")
+        
+        # Récupérer les requêtes lentes depuis Oracle
+        slow_queries = self.oracle.get_slow_queries(min_elapsed_sec, limit)
+        
+        if slow_queries.empty:
+            logger.warning("⚠️ Aucune requête lente trouvée")
+            return []
+        
+        logger.info(f"📊 {len(slow_queries)} requêtes lentes trouvées")
+        
+        results = []
+        
+        for idx, row in slow_queries.iterrows():
+            sql_id = row['SQL_ID']
+            sql_text = row['SQL_TEXT']
+            elapsed = row['TOTAL_ELAPSED_SEC']
+            executions = row['EXECUTIONS']
+            
+            logger.info(f"\n{'='*80}")
+            logger.info(f"🔍 Analyse {idx+1}/{len(slow_queries)}: SQL_ID={sql_id}")
+            logger.info(f"   Temps total: {elapsed:.2f}s | Exécutions: {executions}")
+            logger.info(f"   Requête: {sql_text[:100]}...")
+            
+            # Analyser la requête
+            analysis = self.analyze_query(sql_text, sql_id)
+            
+            # Ajouter les métriques
+            analysis['metrics'] = {
+                'sql_id': sql_id,
+                'total_elapsed_sec': float(elapsed),
+                'executions': int(executions),
+                'avg_elapsed_sec': float(row.get('AVG_ELAPSED_SEC', 0)),
+                'buffer_gets': int(row.get('BUFFER_GETS', 0)),
+                'disk_reads': int(row.get('DISK_READS', 0))
+            }
+            
+            results.append(analysis)
+            
+            # Afficher le résumé
+            logger.info(f"\n📋 RÉSUMÉ DE L'ANALYSE:")
+            logger.info(f"   Explication: {analysis.get('explanation', 'N/A')[:200]}...")
+            logger.info(f"   Points coûteux: {len(analysis.get('bottlenecks', []))} identifiés")
+            logger.info(f"   Recommandations: {len(analysis.get('recommendations', []))}")
+        
+        return results
+    
+    def generate_report(self, analyses: List[Dict]) -> str:
+        """
+        Génère un rapport d'optimisation complet
+        
+        Args:
+            analyses: Liste des analyses de requêtes
+            
+        Returns:
+            Chemin du rapport JSON
+        """
+        if not analyses:
+            logger.warning("⚠️ Aucune analyse à sauvegarder")
+            return None
+        
+        # Créer le rapport
+        report = {
+            'generated_at': datetime.now().isoformat(),
+            'total_queries_analyzed': len(analyses),
+            'queries': analyses,
+            'summary': {
+                'total_bottlenecks': sum(len(a.get('bottlenecks', [])) for a in analyses),
+                'total_recommendations': sum(len(a.get('recommendations', [])) for a in analyses),
+                'avg_elapsed_time': sum(a.get('metrics', {}).get('total_elapsed_sec', 0) for a in analyses) / len(analyses)
+            }
+        }
+        
+        # Sauvegarder JSON
+        report_path = self.output_dir / f"query_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        with open(report_path, 'w', encoding='utf-8') as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+        
+        logger.success(f"✅ Rapport JSON sauvegardé : {report_path}")
+        
+        # Créer aussi un CSV avec les recommandations
+        recommendations_data = []
+        for analysis in analyses:
+            sql_id = analysis.get('metrics', {}).get('sql_id', 'N/A')
+            for rec in analysis.get('recommendations', []):
+                recommendations_data.append({
+                    'SQL_ID': sql_id,
+                    'Temps_Total_Sec': analysis.get('metrics', {}).get('total_elapsed_sec', 0),
+                    'Recommandation': rec
+                })
+        
+        if recommendations_data:
+            rec_df = pd.DataFrame(recommendations_data)
+            rec_path = self.output_dir / f"recommendations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            rec_df.to_csv(rec_path, index=False, encoding='utf-8')
+            logger.success(f"✅ Recommandations CSV : {rec_path}")
+        
+        return str(report_path)
+    
+    def interactive_mode(self):
+        """Mode interactif pour analyser des requêtes"""
+        logger.info("\n" + "="*80)
+        logger.info("🎯 MODE INTERACTIF - ANALYSEUR DE REQUÊTES")
+        logger.info("="*80)
+        logger.info("Entrez une requête SQL à analyser (ou 'quit' pour quitter)")
+        logger.info("Exemple : SELECT * FROM employees WHERE salary > 50000")
+        logger.info("="*80 + "\n")
+        
+        while True:
+            try:
+                sql_query = input("\n💭 Requête SQL > ").strip()
+                
+                if sql_query.lower() in ['quit', 'exit', 'q']:
+                    logger.info("👋 Au revoir !")
+                    break
+                
+                if not sql_query:
+                    continue
+                
+                # Analyser avec le LLM directement - CORRECTION ICI
+                analysis = self.llm.analyze_query(
+                    sql_text=sql_query,
+                    plan="Plan non disponible",
+                    metrics={},
+                    context=""
+                )
+                
+                # Afficher le résultat
+                print("\n" + "="*80)
+                print("📊 RÉSULTAT DE L'ANALYSE")
+                print("="*80)
+                
+                print(f"\n📝 EXPLICATION:")
+                print(f"{analysis.get('explanation', 'N/A')}")
+                
+                print(f"\n⚠️ POINTS COÛTEUX ({len(analysis.get('bottlenecks', []))}):")
+                for i, bottleneck in enumerate(analysis.get('bottlenecks', []), 1):
+                    print(f"  {i}. {bottleneck}")
+                
+                print(f"\n💡 RECOMMANDATIONS ({len(analysis.get('recommendations', []))}):")
+                for i, rec in enumerate(analysis.get('recommendations', []), 1):
+                    print(f"  {i}. {rec}")
+                
+                print("="*80)
+                
+            except KeyboardInterrupt:
+                logger.info("\n👋 Au revoir !")
+                break
+            except Exception as e:
+                logger.error(f"❌ Erreur : {e}")
+
+    def analyze_slow_queries_from_file(self, data_dir='data/oracle_exports', top_n=5, threshold_elapsed=500000):
+        """
+        Analyse les requêtes lentes à partir des fichiers exportés
+        
+        Args:
+            data_dir: Répertoire des données exportées
+            top_n: Nombre de requêtes à analyser
+            threshold_elapsed: Seuil de temps écoulé (microsecondes)
+            
+        Returns:
+            Liste des analyses
+        """
+        logger.info(f"🔍 Analyse des requêtes lentes depuis les fichiers...")
+        
         sql_stats_file = f"{data_dir}/sql_stats.csv"
+        
         if not os.path.exists(sql_stats_file):
             logger.error(f"❌ Fichier {sql_stats_file} non trouvé")
             return []
         
-        sql_df = pd.read_csv(sql_stats_file)
-        logger.info(f"📊 {len(sql_df)} requêtes chargées")
+        # Charger les statistiques SQL
+        sql_stats = pd.read_csv(sql_stats_file)
         
-        # Filtrer les requêtes lentes
-        slow_queries = sql_df[
-            sql_df['ELAPSED_TIME'] > threshold_elapsed
-        ].sort_values('ELAPSED_TIME', ascending=False).head(top_n)
+        # DEBUG: Afficher les colonnes disponibles
+        logger.info(f"📊 Colonnes disponibles dans sql_stats.csv: {list(sql_stats.columns)}")
+        logger.info(f"📊 Nombre de lignes: {len(sql_stats)}")
         
-        logger.info(f"🐌 {len(slow_queries)} requêtes lentes détectées (> {threshold_elapsed/1000000:.1f}s)")
+        # Identifier quelle colonne contient le temps d'exécution
+        time_columns = ['ELAPSED_TIME', 'ELAPSED_TIME_SEC', 'ELAPSED_TIME_MS', 'TIME', 'TOTAL_ELAPSED_SEC', 'ELAPSED_TIME_MICRO']
+        found_column = None
         
-        if len(slow_queries) == 0:
-            logger.warning("⚠️  Aucune requête lente à analyser")
+        for col in time_columns:
+            if col in sql_stats.columns:
+                found_column = col
+                logger.info(f"✅ Colonne de temps trouvée: {col}")
+                break
+        
+        if not found_column:
+            logger.warning("⚠️  Aucune colonne de temps standard trouvée")
+            logger.info("Colonnes disponibles:")
+            for col in sql_stats.columns:
+                logger.info(f"  - {col}")
             return []
         
-        # Analyser chaque requête
+        # Convertir le seuil si nécessaire
+        if found_column == 'ELAPSED_TIME_SEC' or found_column == 'TOTAL_ELAPSED_SEC':
+            threshold = threshold_elapsed / 1000000  # Convertir en secondes
+        elif found_column == 'ELAPSED_TIME_MS':
+            threshold = threshold_elapsed / 1000  # Convertir en millisecondes
+        else:
+            threshold = threshold_elapsed  # Déjà en microsecondes
+        
+        # Filtrer les requêtes lentes
+        slow_queries = sql_stats[sql_stats[found_column] > threshold]
+        
+        if len(slow_queries) == 0:
+            logger.warning(f"⚠️ Aucune requête lente trouvée (seuil: {threshold})")
+            return []
+        
+        # Prendre les top_n requêtes les plus lentes
+        slow_queries = slow_queries.nlargest(top_n, found_column)
+        
+        logger.info(f"📊 {len(slow_queries)} requêtes lentes trouvées")
+        
         results = []
-        for idx, (_, row) in enumerate(slow_queries.iterrows(), 1):
-            logger.info(f"\n🔍 Analyse {idx}/{len(slow_queries)}: {row['SQL_ID']}")
+        
+        for idx, row in slow_queries.iterrows():
+            sql_id = row.get('SQL_ID', f'unknown_{idx}')
+            sql_text = row.get('SQL_TEXT', '')
             
-            analysis = self._analyze_single_query(row)
-            results.append(analysis)
-            
-            # Afficher un résumé rapide
-            if 'error' not in analysis:
-                logger.success(f"   ✅ {len(analysis.get('optimisations', []))} optimisations proposées")
-        
-        self.optimization_results = results
-        
-        # Sauvegarder les résultats
-        self._save_results(results, data_dir)
-        
-        return results
-    
-    def _analyze_single_query(self, query_row: pd.Series) -> Dict:
-        """Analyse une requête individuelle"""
-        
-        sql_id = query_row['SQL_ID']
-        sql_text = query_row['SQL_TEXT']
-        
-        # Récupérer le plan d'exécution
-        exec_plan = self.extractor.get_execution_plan(sql_id)
-        plan_text = self._format_execution_plan(exec_plan)
-        
-        # Préparer les métriques
-        metrics = {
-            'EXECUTIONS': query_row['EXECUTIONS'],
-            'ELAPSED_TIME': query_row['ELAPSED_TIME'],
-            'CPU_TIME': query_row['CPU_TIME'],
-            'BUFFER_GETS': query_row['BUFFER_GETS'],
-            'DISK_READS': query_row['DISK_READS'],
-            'ROWS_PROCESSED': query_row['ROWS_PROCESSED']
-        }
-        
-        # Calculer des métriques dérivées
-        if metrics['EXECUTIONS'] > 0:
-            metrics['AVG_ELAPSED'] = metrics['ELAPSED_TIME'] / metrics['EXECUTIONS']
-            metrics['AVG_BUFFER_GETS'] = metrics['BUFFER_GETS'] / metrics['EXECUTIONS']
-        
-        if metrics['ROWS_PROCESSED'] > 0:
-            metrics['BUFFER_PER_ROW'] = metrics['BUFFER_GETS'] / metrics['ROWS_PROCESSED']
-        
-        # Récupérer le context RAG pertinent
-        search_query = f"optimisation requête lente {self._extract_operations(exec_plan)} index scan join"
-        context_docs = self.rag.retrieve_context(search_query, top_k=4)
-        context = "\n\n".join([doc['document'] for doc in context_docs])
-        
-        logger.info(f"   📝 SQL : {sql_text[:60]}...")
-        logger.info(f"   ⏱️  Temps moyen : {metrics.get('AVG_ELAPSED', 0)/1000:.1f}ms")
-        logger.info(f"   💾 Buffer gets/row : {metrics.get('BUFFER_PER_ROW', 0):.1f}")
-        
-        # Analyse par l'IA
-        logger.info(f"   🤖 Analyse IA en cours...")
-        try:
-            analysis = self.llm.analyze_query(
-                sql_text=sql_text,
-                plan=plan_text,
-                metrics=metrics,
-                context=context
-            )
-            
-            # Ajouter les métadonnées
-            analysis['sql_id'] = sql_id
-            analysis['sql_text'] = sql_text
-            analysis['metrics'] = metrics
-            analysis['execution_plan'] = plan_text
-            
-            return analysis
-            
-        except Exception as e:
-            logger.error(f"   ❌ Erreur analyse : {e}")
-            return {
-                'sql_id': sql_id,
-                'error': str(e),
-                'sql_text': sql_text
-            }
-    
-    def _format_execution_plan(self, plan_df: pd.DataFrame) -> str:
-        """Formate un plan d'exécution en texte lisible"""
-        if plan_df.empty:
-            return "Plan d'exécution non disponible"
-        
-        plan_text = "Plan d'exécution :\n"
-        for _, row in plan_df.iterrows():
-            operation = row['OPERATION']
-            options = row.get('OPTIONS', '')
-            object_name = row.get('OBJECT_NAME', '')
-            cost = row.get('COST', '')
-            
-            line = f"  - {operation}"
-            if options and options != 'None':
-                line += f" ({options})"
-            if object_name and object_name != 'None':
-                line += f" on {object_name}"
-            if cost and cost != 'None':
-                line += f" [Cost: {cost}]"
-            
-            plan_text += line + "\n"
-        
-        return plan_text
-    
-    def _extract_operations(self, plan_df: pd.DataFrame) -> str:
-        """Extrait les opérations principales du plan"""
-        if plan_df.empty:
-            return ""
-        
-        operations = plan_df['OPERATION'].unique()
-        return ' '.join(operations[:3])  # Top 3 opérations
-    
-    def _save_results(self, results: List[Dict], output_dir: str):
-        """Sauvegarde les résultats d'optimisation"""
-        os.makedirs(f"{output_dir}/reports", exist_ok=True)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{output_dir}/reports/optimization_analysis_{timestamp}.json"
-        
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-        
-        logger.success(f"💾 Résultats sauvegardés : {filename}")
-    
-    def print_summary(self):
-        """Affiche un résumé des optimisations"""
-        if not self.optimization_results:
-            logger.warning("Aucune analyse disponible")
-            return
-        
-        print("\n" + "="*60)
-        print("📊 RÉSUMÉ DES OPTIMISATIONS")
-        print("="*60)
-        
-        valid_results = [r for r in self.optimization_results if 'error' not in r]
-        
-        print(f"\n✅ {len(valid_results)}/{len(self.optimization_results)} requêtes analysées avec succès")
-        
-        # Statistiques globales
-        total_optimizations = sum(
-            len(r.get('optimisations', [])) 
-            for r in valid_results
-        )
-        print(f"💡 {total_optimizations} optimisations totales proposées")
-        
-        # Top 3 requêtes les plus problématiques
-        print(f"\n🔥 TOP 3 des requêtes à optimiser en priorité :\n")
-        
-        for i, result in enumerate(valid_results[:3], 1):
-            print(f"{i}. SQL_ID: {result.get('sql_id', 'N/A')}")
-            print(f"   SQL: {result.get('sql_text', 'N/A')[:70]}...")
-            print(f"   Résumé: {result.get('resume', 'N/A')}")
-            
-            optimizations = result.get('optimisations', [])
-            if optimizations:
-                print(f"   Optimisations ({len(optimizations)}) :")
-                for opt in optimizations[:2]:  # Top 2
-                    priority_emoji = {
-                        'haute': '🔴',
-                        'moyenne': '🟡',
-                        'faible': '🟢'
-                    }
-                    emoji = priority_emoji.get(opt.get('priorite', 'faible'), '⚪')
-                    print(f"      {emoji} {opt.get('titre', 'N/A')}")
-                    print(f"         Gain estimé: {opt.get('gain_estime', 'N/A')}")
-            print()
-        
-        print("="*60)
-    
-    def get_optimization_by_sql_id(self, sql_id: str) -> Dict:
-        """Récupère l'analyse d'optimisation pour un SQL_ID spécifique"""
-        for result in self.optimization_results:
-            if result.get('sql_id') == sql_id:
-                return result
-        return None
-    
-    def export_recommendations_csv(self, output_file: str):
-        """Exporte les recommandations dans un CSV"""
-        recommendations = []
-        
-        for result in self.optimization_results:
-            if 'error' in result:
+            if pd.isna(sql_text) or sql_text == '':
+                logger.warning(f"⚠️ SQL_TEXT vide pour SQL_ID: {sql_id}")
                 continue
             
-            sql_id = result.get('sql_id', '')
-            sql_text = result.get('sql_text', '')[:100]
+            elapsed = row.get(found_column, 0)
+            executions = row.get('EXECUTIONS', 1)
             
-            for opt in result.get('optimisations', []):
-                recommendations.append({
-                    'SQL_ID': sql_id,
-                    'SQL_TEXT': sql_text,
-                    'OPTIMIZATION_TITLE': opt.get('titre', ''),
-                    'PRIORITY': opt.get('priorite', ''),
-                    'DESCRIPTION': opt.get('description', ''),
-                    'IMPLEMENTATION': opt.get('implementation', ''),
-                    'ESTIMATED_GAIN': opt.get('gain_estime', '')
-                })
+            logger.info(f"\n{'='*80}")
+            logger.info(f"🔍 Analyse {idx+1}/{len(slow_queries)}: SQL_ID={sql_id}")
+            
+            # Afficher le temps avec l'unité appropriée
+            if found_column == 'ELAPSED_TIME_SEC' or found_column == 'TOTAL_ELAPSED_SEC':
+                logger.info(f"   Temps total: {elapsed:.2f}s | Exécutions: {executions}")
+            elif found_column == 'ELAPSED_TIME_MS':
+                logger.info(f"   Temps total: {elapsed:.2f}ms | Exécutions: {executions}")
+            else:
+                logger.info(f"   Temps total: {elapsed/1000000:.2f}s | Exécutions: {executions}")
+            
+            logger.info(f"   Requête: {sql_text[:100]}...")
+            
+            # Récupérer le plan d'exécution si possible
+            execution_plan = ""
+            try:
+                if self.oracle.connection:
+                    plan_df = self.oracle.get_execution_plan(sql_id)
+                    if not plan_df.empty:
+                        execution_plan = "\n".join([
+                            f"  {row['OPERATION']} (Cost: {row['COST']})"
+                            for _, row in plan_df.iterrows()
+                        ])
+            except Exception as e:
+                logger.warning(f"⚠️ Impossible de récupérer le plan d'exécution: {e}")
+            
+            # Récupérer le contexte RAG
+            context_docs = self.rag.retrieve_context(
+                f"optimisation requête Oracle {sql_text[:50]}",
+                top_k=3
+            )
+            rag_context = "\n\n".join([doc['document'] for doc in context_docs])
+            
+            try:
+                # Analyser avec le LLM - CORRECTION ICI
+                analysis = self.llm.analyze_query(
+                    sql_text=sql_text,  # Changé de sql_query à sql_text
+                    plan=execution_plan if execution_plan else "Plan non disponible",  # Changé de execution_plan à plan
+                    metrics=row.to_dict(),
+                    context=rag_context
+                )
+                
+                # Ajouter les métriques
+                analysis['metrics'] = row.to_dict()
+                analysis['sql_text'] = sql_text
+                analysis['sql_id'] = sql_id
+                
+                results.append(analysis)
+                
+                # Afficher le résumé
+                logger.info(f"\n📋 RÉSUMÉ DE L'ANALYSE:")
+                if 'resume' in analysis:
+                    logger.info(f"   Résumé: {analysis.get('resume', 'N/A')[:200]}...")
+                elif 'explanation' in analysis:
+                    logger.info(f"   Explication: {analysis.get('explanation', 'N/A')[:200]}...")
+                
+                optimisations = analysis.get('optimisations', [])
+                if not optimisations:
+                    optimisations = analysis.get('recommendations', [])
+                
+                logger.info(f"   Optimisations proposées: {len(optimisations)}")
+                
+            except Exception as e:
+                logger.error(f"❌ Erreur lors de l'analyse de la requête {sql_id}: {e}")
         
-        df = pd.DataFrame(recommendations)
-        df.to_csv(output_file, index=False)
-        logger.success(f"📄 Recommandations exportées : {output_file}")
-        
-        return df
+        return results
 
 
 def main():
@@ -284,29 +393,53 @@ def main():
     logger.info("MODULE 5 : ANALYSE D'OPTIMISATION DE REQUÊTES")
     logger.info("="*60)
     
-    # Initialiser l'optimiseur
+    # 1. Initialiser les composants
+    logger.info("🚀 Initialisation du Query Optimizer")
     optimizer = QueryOptimizer()
     
-    # Connecter à la source de données
-    optimizer.extractor.connect()
+    # 2. Se connecter à Oracle
+    logger.info("🔌 Connexion à Oracle Database...")
+    if not optimizer.oracle.connect():
+        logger.error("❌ Impossible de se connecter à Oracle")
+        logger.info("💡 Assurez-vous que le conteneur Docker Oracle est démarré")
+        logger.info("💡 Commande : docker ps | grep oracle")
+        return
     
-    # Analyser les requêtes lentes
-    results = optimizer.analyze_slow_queries(
-        data_dir='data/oracle_exports',
-        top_n=5,
-        threshold_elapsed=500000  # 0.5 seconde
-    )
+    try:
+        # 3. Analyser les requêtes lentes depuis les fichiers
+        logger.info("\n" + "="*60)
+        logger.info("🔍 ANALYSE DES REQUÊTES LENTES")
+        logger.info("="*60)
+        
+        analyses = optimizer.analyze_slow_queries_from_file(
+            data_dir='data/oracle_exports',
+            top_n=5,
+            threshold_elapsed=500000  # 0.5 seconde
+        )
+        
+        if analyses:
+            # 4. Générer le rapport
+            logger.info("\n" + "="*60)
+            logger.info("📄 GÉNÉRATION DU RAPPORT")
+            logger.info("="*60)
+            
+            report_path = optimizer.generate_report(analyses)
+            
+            logger.success("\n" + "="*60)
+            logger.success("✅ ANALYSE TERMINÉE")
+            logger.success("="*60)
+            logger.info(f"   Requêtes analysées : {len(analyses)}")
+            logger.info(f"   Rapport : {report_path}")
+        
+        # 5. Mode interactif (optionnel)
+        logger.info("\n" + "="*60)
+        response = input("Voulez-vous analyser d'autres requêtes en mode interactif ? (o/n) > ").strip().lower()
+        if response == 'o':
+            optimizer.interactive_mode()
     
-    # Afficher le résumé
-    optimizer.print_summary()
-    
-    # Exporter les recommandations
-    optimizer.export_recommendations_csv(
-        'data/oracle_exports/optimization_recommendations.csv'
-    )
-    
-    logger.info("\n✅ MODULE 5 TERMINÉ")
-    logger.info("📂 Résultats disponibles dans data/oracle_exports/reports/")
+    finally:
+        # 6. Déconnexion
+        optimizer.oracle.disconnect()
 
 
 if __name__ == "__main__":

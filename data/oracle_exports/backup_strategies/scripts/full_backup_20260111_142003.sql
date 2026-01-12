@@ -1,0 +1,11 @@
+
+-- Sauvegarde complète
+RUN {
+  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '/u01/backup/oracle/full_%U';
+  BACKUP AS COMPRESSED BACKUPSET
+    DATABASE
+    PLUS ARCHIVELOG DELETE INPUT;
+  BACKUP CURRENT CONTROLFILE FORMAT '/u01/backup/oracle/control_%U';
+  BACKUP SPFILE FORMAT '/u01/backup/oracle/spfile_%U';
+  RELEASE CHANNEL ch1;
+}

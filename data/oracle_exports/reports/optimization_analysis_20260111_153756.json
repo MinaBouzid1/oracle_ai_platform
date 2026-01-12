@@ -1,0 +1,116 @@
+[
+  {
+    "resume": "La requête DELETE est lentement car elle effectue une table scan complète sur la table temp_table, ce qui est inefficace pour des opérations de suppression.",
+    "points_couteux": [
+      {
+        "operation": "TABLE ACCESS (BY INDEX ROWID) on EMPLOYEES",
+        "cout": "436",
+        "explication": "La requête DELETE sur temp_table cause une table scan complète, ce qui est inefficace et coûteux en termes de ressources."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Utiliser un index sur la colonne 'created_date' pour filtrer les lignes à supprimer",
+        "priorite": "Haute",
+        "description": "Créer un index sur la colonne 'created_date' pour permettre une table scan plus efficace et réduire le nombre de lignes à traiter.",
+        "implementation": "CREATE INDEX idx_temp_table_created_date ON temp_table(created_date)",
+        "gain_estime": "Réduit significativement les ressources utilisées (buffer_gets, disk_reads) et peut améliorer considérablement l'execution time."
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": "100",
+      "disk_reads": "50",
+      "elapsed_time": "2000"
+    },
+    "sql_id": "sql_0044",
+    "sql_text": "DELETE FROM temp_table WHERE created_date < SYSDATE - 7",
+    "metrics": {
+      "EXECUTIONS": 473,
+      "ELAPSED_TIME": 4856474,
+      "CPU_TIME": 99812,
+      "BUFFER_GETS": 12539,
+      "DISK_READS": 12590,
+      "ROWS_PROCESSED": 3083,
+      "AVG_ELAPSED": 10267.38689217759,
+      "AVG_BUFFER_GETS": 26.50951374207188,
+      "BUFFER_PER_ROW": 4.0671423937723
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 857]\n  - TABLE ACCESS (BY INDEX ROWID) on EMPLOYEES [Cost: 436]\n"
+  },
+  {
+    "resume": "La requête est lentement car elle effectue une table scan complète sur la colonne order_date, ce qui peut être inefficace pour des dates récentes.",
+    "points_couteux": [
+      {
+        "operation": "INDEX RANGE SCAN",
+        "cout": "43367 microsec",
+        "explication": "La requête utilise un index sur la colonne order_date, mais cela peut être inefficace pour des dates récentes car elle effectue une table scan complète."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Utiliser un index composite avec order_date et order_id",
+        "priorite": "Haute",
+        "description": "Créer un index composite sur la colonne order_date et order_id pour permettre une recherche plus rapide des lignes correspondantes.",
+        "implementation": "CREATE INDEX idx_orders_order_date ON orders(order_date, order_id)",
+        "gain_estime": "Réduire le temps d'exécution de 43367 microsec à environ 100 microsec"
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": "250",
+      "disk_reads": "100",
+      "elapsed_time": "100 microsec"
+    },
+    "sql_id": "sql_0023",
+    "sql_text": "SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30",
+    "metrics": {
+      "EXECUTIONS": 839,
+      "ELAPSED_TIME": 4839052,
+      "CPU_TIME": 43367,
+      "BUFFER_GETS": 77651,
+      "DISK_READS": 26796,
+      "ROWS_PROCESSED": 5758,
+      "AVG_ELAPSED": 5767.642431466031,
+      "AVG_BUFFER_GETS": 92.55184743742551,
+      "BUFFER_PER_ROW": 13.485758944077805
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 947]\n  - TABLE ACCESS (BY INDEX ROWID) on EMPLOYEES [Cost: 53]\n"
+  },
+  {
+    "resume": "La requête DELETE est lentement traitée par un SCAN FULL sur la table temp_table, augmentant les coûts et les ressources utilisés.",
+    "points_couteux": [
+      {
+        "operation": "TABLE ACCESS (FULL)",
+        "cout": "395",
+        "explication": "La requête DELETE nécessite une lecture complète de la table temp_table pour chaque ligne à supprimer, ce qui est coûteux en termes d'efforts CPU et de temps d'exécution."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Utiliser un INDEX UNIQUE SCAN sur la colonne 'created_date'",
+        "priorite": "Haute",
+        "description": "En créant un index unique sur la colonne 'created_date', Oracle peut utiliser cet index pour effectuer une lecture rapide des lignes à supprimer, ce qui réduira significativement le temps d'exécution.",
+        "implementation": "CREATE UNIQUE INDEX idx_temp_table_created_date ON temp_table (created_date);",
+        "gain_estime": "Réduction de l'effort CPU et de la durée d'exécution en fonction du nombre de lignes à supprimer."
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": "100",
+      "disk_reads": "100",
+      "elapsed_time": "500"
+    },
+    "sql_id": "sql_0037",
+    "sql_text": "DELETE FROM temp_table WHERE created_date < SYSDATE - 7",
+    "metrics": {
+      "EXECUTIONS": 925,
+      "ELAPSED_TIME": 4769855,
+      "CPU_TIME": 1876246,
+      "BUFFER_GETS": 32446,
+      "DISK_READS": 14262,
+      "ROWS_PROCESSED": 2811,
+      "AVG_ELAPSED": 5156.6,
+      "AVG_BUFFER_GETS": 35.07675675675676,
+      "BUFFER_PER_ROW": 11.542511561721808
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 395]\n  - TABLE ACCESS (FULL) on ORDERS [Cost: 96]\n"
+  }
+]

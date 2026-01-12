@@ -1,0 +1,159 @@
+[
+  {
+    "sql_id": "sql_0044",
+    "error": "HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=120)",
+    "sql_text": "DELETE FROM temp_table WHERE created_date < SYSDATE - 7"
+  },
+  {
+    "resume": "La requête est lentement car elle effectue une table scan complète sur la table 'ORDERS', ce qui est coûteux en termes de temps et de ressources.",
+    "points_couteux": [
+      {
+        "operation": "TABLE ACCESS (BY INDEX ROWID)",
+        "cout": "77651 BUFFER_GETS",
+        "explication": "La table scan complète sur 'ORDERS' est coûteuse en termes de lecture de buffers, ce qui contribue à la lenteur de la requête."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Utiliser un index sur 'ORDER_DATE'",
+        "priorite": "Haute",
+        "description": "En créant un index sur la colonne 'ORDER_DATE', Oracle peut utiliser cette index pour effectuer une table scan plus rapide et efficace, en évitant ainsi les scans complets de la table.",
+        "implementation": "CREATE INDEX idx_orders_order_date ON orders(order_date);",
+        "gain_estime": "Réduire le temps d'exécution à environ 10 fois"
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": "26796",
+      "disk_reads": "26796",
+      "elapsed_time": "43367 microsec"
+    },
+    "sql_id": "sql_0023",
+    "sql_text": "SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30",
+    "metrics": {
+      "EXECUTIONS": 839,
+      "ELAPSED_TIME": 4839052,
+      "CPU_TIME": 43367,
+      "BUFFER_GETS": 77651,
+      "DISK_READS": 26796,
+      "ROWS_PROCESSED": 5758,
+      "AVG_ELAPSED": 5767.642431466031,
+      "AVG_BUFFER_GETS": 92.55184743742551,
+      "BUFFER_PER_ROW": 13.485758944077805
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 178]\n  - TABLE ACCESS (BY INDEX ROWID) on ORDERS [Cost: 145]\n"
+  },
+  {
+    "resume": "La requête DELETE est lentement car elle effectue un full table scan sur la temp_table, ce qui est coûteux pour une table de données temporaires.",
+    "points_couteux": [
+      {
+        "operation": "TABLE ACCESS (BY INDEX ROWID)",
+        "cout": "32446",
+        "explication": "La requête effectue un full table scan sur la temp_table, ce qui est coûteux car elle ne dispose pas d'index appropriés pour une telle opération."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Ajouter un index à la colonne 'created_date'",
+        "priorite": "haute",
+        "description": "Un index sur la colonne 'created_date' permettrait de faire une table partitionnée ou une table clusterée, ce qui pourrait améliorer significativement les performances.",
+        "implementation": "CREATE INDEX idx_temp_table_created_date ON temp_table (created_date);",
+        "gain_estime": "Amélioration des performances en fonction du nombre d'index existants et de la distribution des dates."
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": "1000-2000",
+      "disk_reads": "50-100",
+      "elapsed_time": "1000-3000 microsec"
+    },
+    "sql_id": "sql_0037",
+    "sql_text": "DELETE FROM temp_table WHERE created_date < SYSDATE - 7",
+    "metrics": {
+      "EXECUTIONS": 925,
+      "ELAPSED_TIME": 4769855,
+      "CPU_TIME": 1876246,
+      "BUFFER_GETS": 32446,
+      "DISK_READS": 14262,
+      "ROWS_PROCESSED": 2811,
+      "AVG_ELAPSED": 5156.6,
+      "AVG_BUFFER_GETS": 35.07675675675676,
+      "BUFFER_PER_ROW": 11.542511561721808
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 146]\n  - TABLE ACCESS (BY INDEX ROWID) on DEPARTMENTS [Cost: 259]\n"
+  },
+  {
+    "resume": "La requête est lentue en raison d'un JOIN non optimisé avec une table ORDERS comme source principale, ce qui cause un scan complet de la table ORDERS.",
+    "points_couteux": [
+      {
+        "operation": "TABLE ACCESS (BY INDEX ROWID) on ORDERS",
+        "cout": "202 microsec",
+        "explication": "Le plan d'exécution indique que l'ORDERS est accédée par scan complet, ce qui est lent pour une table de grande taille."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Utiliser un index sur la colonne 'dept_id' dans la table DEPARTMENTS",
+        "priorite": "Haute",
+        "description": "En créant un index sur la colonne 'dept_id' de la table DEPARTMENTS, Oracle peut utiliser cet index pour accéder aux lignes correspondantes rapidement lors du JOIN.",
+        "implementation": "CREATE INDEX idx_dept_id ON departments(dept_id);",
+        "gain_estime": "Réduire le temps d'exécution à environ 10 microsec"
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": "75757 - 202 = 75555",
+      "disk_reads": "40367 - 202 = 40165",
+      "elapsed_time": "4671319 - (202 + 202) = 4667295 microsec"
+    },
+    "sql_id": "sql_0005",
+    "sql_text": "SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",
+    "metrics": {
+      "EXECUTIONS": 979,
+      "ELAPSED_TIME": 4671319,
+      "CPU_TIME": 993039,
+      "BUFFER_GETS": 75757,
+      "DISK_READS": 40367,
+      "ROWS_PROCESSED": 208,
+      "AVG_ELAPSED": 4771.520939734422,
+      "AVG_BUFFER_GETS": 77.38202247191012,
+      "BUFFER_PER_ROW": 364.21634615384613
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 308]\n  - TABLE ACCESS (BY INDEX ROWID) on ORDERS [Cost: 202]\n"
+  },
+  {
+    "resume": "La requête est lentement traitée par un scan complet de la table EMPLOYEES, ce qui peut être amélioré en utilisant une indexation appropriée sur l'attribut order_date.",
+    "points_couteux": [
+      {
+        "operation": "TABLE ACCESS (FULL)",
+        "cout": "445",
+        "explication": "La requête effectue un scan complet de la table EMPLOYEES, ce qui est coûteux pour une base de données avec des milliers d'enregistrements."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Ajouter un index sur l'attribut order_date",
+        "priorite": "Haute",
+        "description": "En ajoutant un index sur l'attribut order_date, Oracle peut utiliser cet index pour accéder aux lignes correspondantes sans avoir à lire entièrement la table EMPLOYEES.",
+        "implementation": "CREATE INDEX idx_orders_order_date ON orders(order_date)",
+        "gain_estime": "Réduire le temps d'exécution de la requête en utilisant l'index."
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": "73576 - 100",
+      "disk_reads": "10483 - 100",
+      "elapsed_time": "4541048 microsec - 200000"
+    },
+    "sql_id": "sql_0002",
+    "sql_text": "SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30",
+    "metrics": {
+      "EXECUTIONS": 47,
+      "ELAPSED_TIME": 4541048,
+      "CPU_TIME": 1178582,
+      "BUFFER_GETS": 73576,
+      "DISK_READS": 10483,
+      "ROWS_PROCESSED": 5185,
+      "AVG_ELAPSED": 96618.0425531915,
+      "AVG_BUFFER_GETS": 1565.4468085106382,
+      "BUFFER_PER_ROW": 14.190163934426229
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 155]\n  - TABLE ACCESS (FULL) on EMPLOYEES [Cost: 445]\n"
+  }
+]

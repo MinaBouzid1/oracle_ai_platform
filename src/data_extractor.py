@@ -1,6 +1,6 @@
 """
-Module 1 : Data Extractor
-Extraction des données depuis Oracle (ou simulateur)
+Module 1 : Data Extractor - Version Production
+Extraction depuis Oracle Database réel via Docker
 """
 
 import os
@@ -8,219 +8,123 @@ import pandas as pd
 from dotenv import load_dotenv
 from loguru import logger
 import sys
+from pathlib import Path
+import json
 
-# Configuration du logger
+# Import du connecteur Oracle
+from oracle_connector import OracleConnector
+
 logger.remove()
 logger.add(sys.stdout, format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | {message}")
 
 load_dotenv()
 
+
 class OracleDataExtractor:
-    """Extracteur de données Oracle avec fallback sur simulateur"""
+    """Extraction de données depuis Oracle Database"""
     
-    def __init__(self, use_mock=True):
+    def __init__(self, use_mock: bool = False):
         """
         Args:
-            use_mock: Si True, utilise le simulateur au lieu d'Oracle réel
+            use_mock: Si True, utilise le simulateur, sinon Oracle réel
         """
         self.use_mock = use_mock
-        self.connection = None
-        self.data_cache = {}
+        self.export_dir = Path("data/oracle_exports")
+        self.export_dir.mkdir(parents=True, exist_ok=True)
         
-        logger.info("🚀 Initialisation de l'extracteur de données")
-        
-    def connect(self):
-        """Établit la connexion à Oracle ou au simulateur"""
-        if self.use_mock:
-            logger.info("📦 Utilisation du simulateur Oracle")
+        if not use_mock:
+            # Configuration Oracle depuis .env ou valeurs par défaut
+            self.oracle = OracleConnector(
+                host=os.getenv("ORACLE_HOST", "localhost"),
+                port=int(os.getenv("ORACLE_PORT", 1521)),
+                service_name=os.getenv("ORACLE_SERVICE", "XEPDB1"),
+                user=os.getenv("ORACLE_USER", "system"),
+                password=os.getenv("ORACLE_PASSWORD", "oracle")
+            )
+        else:
             from mock_oracle import MockOracle
-            self.connection = MockOracle()
-            self.connection.connect()
-        else:
-            logger.info("🔌 Connexion à Oracle réel")
-            try:
-                import oracledb
-                self.connection = oracledb.connect(
-                    user=os.getenv('ORACLE_USER'),
-                    password=os.getenv('ORACLE_PASSWORD'),
-                    host=os.getenv('ORACLE_HOST'),
-                    port=os.getenv('ORACLE_PORT'),
-                    service_name=os.getenv('ORACLE_SERVICE')
-                )
-                logger.success("✅ Connecté à Oracle")
-            except Exception as e:
-                logger.error(f"❌ Erreur de connexion : {e}")
-                logger.warning("🔄 Basculement vers le simulateur")
-                self.use_mock = True
-                return self.connect()
-        
-        return True
+            self.oracle = MockOracle()
     
-    def extract_all(self, output_dir='data/oracle_exports'):
-        """Extrait toutes les données nécessaires"""
-        logger.info("📊 Début de l'extraction complète")
+    def extract_all(self):
+        """Extrait toutes les données Oracle"""
+        logger.info("🚀 Démarrage de l'extraction Oracle Database")
+        logger.info("=" * 60)
         
-        if not self.connection:
-            self.connect()
+        # Connexion
+        if not self.use_mock:
+            if not self.oracle.connect():
+                logger.error("❌ Impossible de se connecter à Oracle")
+                return False
         
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Extraction des différentes sources
-        extractions = {
-            'audit_logs': self._extract_audit_logs,
-            'sql_stats': self._extract_sql_stats,
-            'security_config': self._extract_security,
-            'performance_metrics': self._extract_performance
-        }
-        
-        results = {}
-        for name, func in extractions.items():
-            try:
-                logger.info(f"  📥 Extraction : {name}")
-                data = func()
-                results[name] = data
-                
-                # Sauvegarde CSV
-                if isinstance(data, pd.DataFrame):
-                    filepath = f"{output_dir}/{name}.csv"
-                    data.to_csv(filepath, index=False)
-                    logger.success(f"    ✅ Sauvegardé : {filepath} ({len(data)} lignes)")
-                elif isinstance(data, dict):
-                    for key, df in data.items():
-                        filepath = f"{output_dir}/{name}_{key}.csv"
-                        df.to_csv(filepath, index=False)
-                        logger.success(f"    ✅ Sauvegardé : {filepath} ({len(df)} lignes)")
-                        
-            except Exception as e:
-                logger.error(f"    ❌ Erreur : {e}")
-                results[name] = None
-        
-        self.data_cache = results
-        logger.success("✅ Extraction complète terminée")
-        return results
-    
-    def _extract_audit_logs(self):
-        """Extrait les logs d'audit"""
-        if self.use_mock:
-            return self.connection.get_audit_logs(100)
-        else:
-            query = """
-            SELECT TIMESTAMP, USERNAME, ACTION_NAME as ACTION, 
-                   OBJ_NAME as OBJECT_NAME, RETURNCODE, 
-                   USERHOST as CLIENT_ID, OS_USERNAME, TERMINAL
-            FROM DBA_AUDIT_TRAIL
-            WHERE TIMESTAMP > SYSDATE - 30
-            ORDER BY TIMESTAMP DESC
-            """
-            return pd.read_sql(query, self.connection)
-    
-    def _extract_sql_stats(self):
-        """Extrait les statistiques SQL"""
-        if self.use_mock:
-            return self.connection.get_sql_stats(50)
-        else:
-            query = """
-            SELECT SQL_ID, SQL_TEXT, EXECUTIONS, ELAPSED_TIME,
-                   CPU_TIME, BUFFER_GETS, DISK_READS, ROWS_PROCESSED
-            FROM V$SQLSTATS
-            WHERE EXECUTIONS > 10
-            ORDER BY ELAPSED_TIME DESC
-            FETCH FIRST 50 ROWS ONLY
-            """
-            return pd.read_sql(query, self.connection)
-    
-    def _extract_security(self):
-        """Extrait la configuration de sécurité"""
-        if self.use_mock:
-            return self.connection.get_security_config()
-        else:
-            users_query = """
-            SELECT USERNAME, ACCOUNT_STATUS, PROFILE, 
-                   DEFAULT_TABLESPACE, CREATED
-            FROM DBA_USERS
-            WHERE USERNAME NOT IN ('SYS', 'SYSTEM')
-            """
+        try:
+            # 1. Logs d'audit
+            audit_logs = self.oracle.get_audit_logs(limit=100)
+            audit_path = self.export_dir / "audit_logs.csv"
+            audit_logs.to_csv(audit_path, index=False)
+            logger.success(f"✅ Logs d'audit : {len(audit_logs)} lignes → {audit_path}")
             
-            roles_query = "SELECT ROLE FROM DBA_ROLES"
+            # 2. Statistiques SQL
+            sql_stats = self.oracle.get_sql_statistics(limit=50)
+            sql_path = self.export_dir / "sql_stats.csv"
+            sql_stats.to_csv(sql_path, index=False)
+            logger.success(f"✅ Stats SQL : {len(sql_stats)} lignes → {sql_path}")
             
-            privs_query = """
-            SELECT GRANTEE, PRIVILEGE, ADMIN_OPTION
-            FROM DBA_SYS_PRIVS
-            WHERE GRANTEE NOT IN ('SYS', 'SYSTEM')
-            """
+            # 3. Requêtes lentes
+            slow_queries = self.oracle.get_slow_queries(min_elapsed_sec=0.1, limit=20)
+            slow_path = self.export_dir / "slow_queries.csv"
+            slow_queries.to_csv(slow_path, index=False)
+            logger.success(f"✅ Requêtes lentes : {len(slow_queries)} lignes → {slow_path}")
             
-            return {
-                'users': pd.read_sql(users_query, self.connection),
-                'roles': pd.read_sql(roles_query, self.connection),
-                'privileges': pd.read_sql(privs_query, self.connection)
-            }
-    
-    def _extract_performance(self):
-        """Extrait les métriques de performance"""
-        if self.use_mock:
-            # Métriques simulées
-            return pd.DataFrame({
-                'METRIC_NAME': ['CPU Usage', 'Memory Usage', 'IO Wait', 'Active Sessions'],
-                'VALUE': [45.2, 67.8, 12.3, 23],
-                'UNIT': ['%', '%', '%', 'count']
-            })
-        else:
-            query = """
-            SELECT METRIC_NAME, VALUE, METRIC_UNIT as UNIT
-            FROM V$SYSMETRIC
-            WHERE GROUP_ID = 2
-            """
-            return pd.read_sql(query, self.connection)
-    
-    def get_execution_plan(self, sql_id):
-        """Récupère le plan d'exécution d'une requête"""
-        if self.use_mock:
-            return self.connection.get_execution_plan(sql_id)
-        else:
-            query = f"""
-            SELECT OPERATION, OPTIONS, OBJECT_NAME, COST, CARDINALITY
-            FROM V$SQL_PLAN
-            WHERE SQL_ID = '{sql_id}'
-            ORDER BY ID
-            """
-            return pd.read_sql(query, self.connection)
-    
-    def close(self):
-        """Ferme la connexion"""
-        if self.connection and not self.use_mock:
-            self.connection.close()
-        logger.info("🔌 Connexion fermée")
-
-
-def main():
-    """Fonction principale de test"""
-    logger.info("="*60)
-    logger.info("MODULE 1 : EXTRACTION DE DONNÉES ORACLE")
-    logger.info("="*60)
-    
-    # Créer l'extracteur
-    extractor = OracleDataExtractor(use_mock=True)
-    
-    # Extraire toutes les données
-    results = extractor.extract_all()
-    
-    # Afficher un résumé
-    logger.info("\n" + "="*60)
-    logger.info("📊 RÉSUMÉ DE L'EXTRACTION")
-    logger.info("="*60)
-    
-    for name, data in results.items():
-        if isinstance(data, pd.DataFrame):
-            logger.info(f"  📁 {name}: {len(data)} lignes")
-        elif isinstance(data, dict):
-            for key, df in data.items():
-                logger.info(f"  📁 {name}.{key}: {len(df)} lignes")
-    
-    logger.info("\n✅ MODULE 1 TERMINÉ")
-    logger.info("📂 Fichiers disponibles dans : data/oracle_exports/")
-    
-    extractor.close()
+            # 4. Utilisateurs et rôles
+            users_data = self.oracle.get_users_and_roles()
+            
+            users_path = self.export_dir / "users.csv"
+            users_data['users'].to_csv(users_path, index=False)
+            logger.success(f"✅ Utilisateurs : {len(users_data['users'])} lignes → {users_path}")
+            
+            roles_path = self.export_dir / "user_roles.csv"
+            users_data['roles'].to_csv(roles_path, index=False)
+            logger.success(f"✅ Rôles : {len(users_data['roles'])} lignes → {roles_path}")
+            
+            # 5. Privilèges système
+            sys_privs = self.oracle.get_system_privileges()
+            privs_path = self.export_dir / "system_privileges.csv"
+            sys_privs.to_csv(privs_path, index=False)
+            logger.success(f"✅ Privilèges : {len(sys_privs)} lignes → {privs_path}")
+            
+            # 6. Tablespaces
+            tablespaces = self.oracle.get_tablespace_usage()
+            ts_path = self.export_dir / "tablespaces.csv"
+            tablespaces.to_csv(ts_path, index=False)
+            logger.success(f"✅ Tablespaces : {len(tablespaces)} lignes → {ts_path}")
+            
+            # 7. Taille de la base
+            db_size = self.oracle.get_database_size()
+            size_path = self.export_dir / "database_metrics.json"
+            with open(size_path, 'w') as f:
+                json.dump(db_size, f, indent=2)
+            logger.success(f"✅ Métriques DB → {size_path}")
+            
+            logger.success("=" * 60)
+            logger.success("✅ EXTRACTION TERMINÉE")
+            logger.info("\n📊 RÉSUMÉ:")
+            logger.info(f"   - Logs d'audit: {len(audit_logs)}")
+            logger.info(f"   - Statistiques SQL: {len(sql_stats)}")
+            logger.info(f"   - Requêtes lentes: {len(slow_queries)}")
+            logger.info(f"   - Utilisateurs: {len(users_data['users'])}")
+            logger.info(f"   - Rôles: {len(users_data['roles'])}")
+            logger.info(f"   - Privilèges: {len(sys_privs)}")
+            logger.info(f"   - Tablespaces: {len(tablespaces)}")
+            logger.info(f"   - Taille DB: {db_size['total_size_gb']:.2f} GB")
+            
+            return True
+            
+        finally:
+            if not self.use_mock:
+                self.oracle.disconnect()
 
 
 if __name__ == "__main__":
-    main()
+    # Extraction depuis Oracle réel
+    extractor = OracleDataExtractor(use_mock=False)
+    extractor.extract_all()

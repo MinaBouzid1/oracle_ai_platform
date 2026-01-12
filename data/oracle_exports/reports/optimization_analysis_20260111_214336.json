@@ -1,0 +1,159 @@
+[
+  {
+    "resume": "La requête DELETE est lentement car elle utilise un INDEX UNIQUE SCAN sur une colonne de date, ce qui peut être inefficace pour des opérations de suppression.",
+    "points_couteux": [
+      {
+        "operation": "INDEX UNIQUE SCAN",
+        "cout": "12539",
+        "explication": "La requête DELETE utilise un INDEX UNIQUE SCAN sur la colonne CREATED_DATE, ce qui peut être inefficace pour des opérations de suppression car elle lit chaque ligne une fois."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Utiliser un FULL TABLE SCAN",
+        "priorite": "haute",
+        "description": "En utilisant un FULL TABLE SCAN, Oracle peut lire et supprimer les lignes en une seule passe sans avoir à faire de scans indexés. Cela pourrait être plus rapide pour des opérations de suppression.",
+        "implementation": "DELETE FROM temp_table WHERE created_date < SYSDATE - 7",
+        "gain_estime": "Réduction significative du temps d'exécution"
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": "0",
+      "disk_reads": "12539",
+      "elapsed_time": "0"
+    },
+    "sql_id": "sql_0044",
+    "sql_text": "DELETE FROM temp_table WHERE created_date < SYSDATE - 7",
+    "metrics": {
+      "EXECUTIONS": 473,
+      "ELAPSED_TIME": 4856474,
+      "CPU_TIME": 99812,
+      "BUFFER_GETS": 12539,
+      "DISK_READS": 12590,
+      "ROWS_PROCESSED": 3083,
+      "AVG_ELAPSED": 10267.38689217759,
+      "AVG_BUFFER_GETS": 26.50951374207188,
+      "BUFFER_PER_ROW": 4.0671423937723
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 950]\n  - TABLE ACCESS (BY INDEX ROWID) on ORDERS [Cost: 275]\n"
+  },
+  {
+    "resume": "La requête est lentement traitée par un scan complet de la table DEPARTMENTS, augmenté par l'utilisation excessive des ressources de lecture.",
+    "points_couteux": [
+      {
+        "operation": "TABLE ACCESS (FULL) on DEPARTMENTS",
+        "cout": "77651 BUFFER_GETS",
+        "explication": "La requête effectue un scan complet de la table DEPARTMENTS, ce qui est coûteux car elle doit lire tous les lignes de cette grande table."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Utiliser un Index sur ORDER_DATE",
+        "priorite": "haute",
+        "description": "Créer un index sur la colonne ORDER_DATE pour améliorer l'exécution de la requête et réduire le nombre de lignes à lire.",
+        "implementation": "CREATE INDEX idx_orders_order_date ON orders(order_date);",
+        "gain_estime": "Réduit les BUFFER_GETS en utilisant un index range scan."
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": 1000,
+      "disk_reads": 500,
+      "elapsed_time": 2000
+    },
+    "sql_id": "sql_0023",
+    "sql_text": "SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30",
+    "metrics": {
+      "EXECUTIONS": 839,
+      "ELAPSED_TIME": 4839052,
+      "CPU_TIME": 43367,
+      "BUFFER_GETS": 77651,
+      "DISK_READS": 26796,
+      "ROWS_PROCESSED": 5758,
+      "AVG_ELAPSED": 5767.642431466031,
+      "AVG_BUFFER_GETS": 92.55184743742551,
+      "BUFFER_PER_ROW": 13.485758944077805
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 716]\n  - TABLE ACCESS (FULL) on DEPARTMENTS [Cost: 269]\n"
+  },
+  {
+    "resume": "La requête DELETE est lentement utilisée, probablement en raison d'un Full Table Scan sur une table de temp stockant des données temporaires.",
+    "points_couteux": [
+      {
+        "operation": "TABLE ACCESS (FULL)",
+        "cout": "302",
+        "explication": "La requête effectue un Full Table Scan qui est coûteux pour les tables importantes, surtout si elles contiennent beaucoup de données."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Utiliser une Index Range Scan au lieu d'un Full Table Scan",
+        "priorite": "Haute",
+        "description": "En utilisant une index range scan sur la colonne `created_date`, nous pourrions accélérer l'exécution de la requête en limitant le nombre de lignes à supprimer.",
+        "implementation": "DELETE FROM temp_table WHERE created_date < SYSDATE - 7 AND created_date > (SELECT MAX(created_date) FROM temp_table)",
+        "gain_estime": "Réduire les I/O et accélérer l'exécution"
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": "10-50",
+      "disk_reads": "20-80",
+      "elapsed_time": "100-300 microsec"
+    },
+    "sql_id": "sql_0037",
+    "sql_text": "DELETE FROM temp_table WHERE created_date < SYSDATE - 7",
+    "metrics": {
+      "EXECUTIONS": 925,
+      "ELAPSED_TIME": 4769855,
+      "CPU_TIME": 1876246,
+      "BUFFER_GETS": 32446,
+      "DISK_READS": 14262,
+      "ROWS_PROCESSED": 2811,
+      "AVG_ELAPSED": 5156.6,
+      "AVG_BUFFER_GETS": 35.07675675675676,
+      "BUFFER_PER_ROW": 11.542511561721808
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 951]\n  - TABLE ACCESS (FULL) on DEPARTMENTS [Cost: 302]\n"
+  },
+  {
+    "resume": "La requête est lentement traitée en utilisant une table scan sur ORDERS, ce qui cause un grand nombre de lues disque et de GETS de buffer.",
+    "points_couteux": [
+      {
+        "operation": "TABLE ACCESS (BY INDEX ROWID) on ORDERS",
+        "cout": "4671319 microsec",
+        "explication": "La table scan sur ORDERS est coûteuse en temps et en ressources, surtout avec 40367 lues disque."
+      }
+    ],
+    "optimisations": [
+      {
+        "titre": "Utiliser un index sur la colonne 'dept_id' de la table 'employees'",
+        "priorite": "haute",
+        "description": "En ajoutant un index sur la colonne 'dept_id' de la table 'employees', Oracle peut utiliser cet index pour accéder aux données nécessaires, ce qui réduira le nombre de lues disque et de GETS de buffer.",
+        "implementation": "CREATE INDEX idx_employees_dept_id ON employees(dept_id)",
+        "gain_estime": "Réduit les lues disque à environ 10% du nombre actuel"
+      }
+    ],
+    "metriques_cibles": {
+      "buffer_gets": 7575.7,
+      "disk_reads": 4036.7,
+      "elapsed_time": 99303.9
+    },
+    "sql_id": "sql_0005",
+    "sql_text": "SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id",
+    "metrics": {
+      "EXECUTIONS": 979,
+      "ELAPSED_TIME": 4671319,
+      "CPU_TIME": 993039,
+      "BUFFER_GETS": 75757,
+      "DISK_READS": 40367,
+      "ROWS_PROCESSED": 208,
+      "AVG_ELAPSED": 4771.520939734422,
+      "AVG_BUFFER_GETS": 77.38202247191012,
+      "BUFFER_PER_ROW": 364.21634615384613
+    },
+    "execution_plan": "Plan d'exécution :\n  - SELECT STATEMENT [Cost: 276]\n  - TABLE ACCESS (BY INDEX ROWID) on ORDERS [Cost: 114]\n"
+  },
+  {
+    "sql_id": "sql_0002",
+    "error": "HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=120)",
+    "sql_text": "SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30"
+  }
+]
