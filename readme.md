@@ -505,8 +505,8 @@ Interface web Streamlit :
 ## Restauration
 ![Restauration](images/dashboard_Restauration.png)
 ## Chatbot
-![Chatbot](images/dashboard_chatbot.png)
-![Chatbot](images/dashboard_chatbot2.png)
+![Chatbot](images/chatbot.png)
+![Chatbot](images/chatbot2.png)
 
 **Lancement :**
 ```bash
