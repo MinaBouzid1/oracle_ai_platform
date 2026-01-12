@@ -1,0 +1,18 @@
+{
+  "extraction_mode": "mock",
+  "timestamp": "2026-01-12T18:10:59.561144",
+  "total_files": 10,
+  "total_rows": 267,
+  "files": {
+    "audit_logs.csv": 11430,
+    "sql_stats.csv": 9184,
+    "slow_queries.csv": 3337,
+    "users.csv": 897,
+    "user_roles.csv": 666,
+    "system_privileges.csv": 404,
+    "tablespaces.csv": 267,
+    "database_metrics.json": 170,
+    "security_config_users.csv": 647,
+    "security_config_privileges.csv": 912
+  }
+}

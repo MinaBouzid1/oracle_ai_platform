@@ -1,4 +1,7 @@
 {
-  "total_size_gb": 0.75,
-  "timestamp": "2026-01-11T23:02:07.856804"
+  "total_size_gb": 36.34,
+  "timestamp": "2026-01-12T18:10:59.280553",
+  "datafiles_count": 11,
+  "tablespaces_count": 5,
+  "estimated_growth_gb_per_month": 3.3
 }

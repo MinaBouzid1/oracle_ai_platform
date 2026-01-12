@@ -1,7 +1,7 @@
 """
 Module 3 : LLM Engine
 Interface centralisée pour tous les appels LLM du projet
-Supporte Claude, OpenAI, et Ollama
+Supporte Claude, OpenAI, Groq et Ollama
 """
 
 import os
@@ -28,7 +28,7 @@ class LLMEngine:
         Args:
             prompts_file: Chemin vers le fichier YAML de prompts
         """
-        self.provider = os.getenv('LLM_PROVIDER', 'claude').lower()
+        self.provider = os.getenv('LLM_PROVIDER', 'groq').lower()
         self.prompts = self._load_prompts(prompts_file)
         self.client = None
         self.model = None
@@ -58,7 +58,7 @@ class LLMEngine:
                 if not api_key:
                     raise ValueError("ANTHROPIC_API_KEY non définie dans .env")
                 self.client = Anthropic(api_key=api_key)
-                self.model = "claude-sonnet-4-20250514"
+                self.model = "claude-3-haiku-20240307"
                 logger.success("✅ Client Claude initialisé")
                 
             elif self.provider == 'openai':
@@ -69,6 +69,15 @@ class LLMEngine:
                 self.client = OpenAI(api_key=api_key)
                 self.model = "gpt-3.5-turbo"
                 logger.success("✅ Client OpenAI initialisé")
+                
+            elif self.provider == 'groq':
+                from groq import Groq
+                api_key = os.getenv('GROQ_API_KEY')
+                if not api_key:
+                    raise ValueError("GROQ_API_KEY non définie dans .env")
+                self.client = Groq(api_key=api_key)
+                self.model = os.getenv('GROQ_MODEL', 'llama-3.1-8b-instant')
+                logger.success(f"✅ Client Groq initialisé (modèle: {self.model})")
                 
             elif self.provider == 'ollama':
                 import requests
@@ -169,6 +178,20 @@ class LLMEngine:
             return response.content[0].text
         
         elif self.provider == 'openai':
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": user_prompt})
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            return response.choices[0].message.content
+        
+        elif self.provider == 'groq':
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})

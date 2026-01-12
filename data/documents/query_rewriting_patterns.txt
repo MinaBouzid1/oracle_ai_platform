@@ -1,59 +1,599 @@
-PATTERNS DE RÉÉCRITURE DE REQUÊTES
-===================================
+PATTERNS DE RÉÉCRITURE DE REQUÊTES  
+====================================================
 
-1. SUBQUERY → JOIN
+## 1. OPTIMISATION DES SOUS-REQUÊTES
 
-❌ LENT (subquery exécutée pour chaque ligne):
-SELECT e.name FROM employees e
-WHERE e.dept_id IN (SELECT dept_id FROM departments WHERE location = 'NY');
+### 1.1 Subquery Corrélée → JOIN
+❌ SUBQUERY CORRÉLÉE (exécutée N fois):
+SELECT e.name, e.salary
+FROM employees e
+WHERE e.salary > (
+    SELECT AVG(salary) 
+    FROM employees 
+    WHERE dept_id = e.dept_id
+);
 
-✅ RAPIDE (JOIN exécuté une fois):
-SELECT e.name FROM employees e
+✅ JOIN avec AGGREGATION (exécutée 1 fois):
+SELECT e.name, e.salary
+FROM employees e
+JOIN (
+    SELECT dept_id, AVG(salary) as avg_salary
+    FROM employees
+    GROUP BY dept_id
+) dept_avg ON e.dept_id = dept_avg.dept_id
+WHERE e.salary > dept_avg.avg_salary;
+
+### 1.2 Subquery dans SELECT → JOIN
+❌ LENT:
+SELECT 
+    e.name,
+    (SELECT COUNT(*) FROM orders o WHERE o.emp_id = e.id) as order_count
+FROM employees e;
+
+✅ RAPIDE:
+SELECT 
+    e.name,
+    COALESCE(o.order_count, 0) as order_count
+FROM employees e
+LEFT JOIN (
+    SELECT emp_id, COUNT(*) as order_count
+    FROM orders
+    GROUP BY emp_id
+) o ON e.id = o.emp_id;
+
+### 1.3 EXISTS avec Corrélation
+❌ MÉDIOCRE:
+SELECT d.dept_name
+FROM departments d
+WHERE EXISTS (
+    SELECT 1 
+    FROM employees e 
+    WHERE e.dept_id = d.dept_id 
+    AND e.salary > 100000
+);
+
+✅ OPTIMISÉ:
+SELECT DISTINCT d.dept_name
+FROM departments d
+JOIN employees e ON d.dept_id = e.dept_id
+WHERE e.salary > 100000;
+
+## 2. OPTIMISATION DES AGRÉGATIONS
+
+### 2.1 Agrégations Multiples → CTE
+❌ MULTIPLES SCANS:
+SELECT 
+    dept_id,
+    COUNT(*) as total_employees,
+    AVG(salary) as avg_salary,
+    MAX(salary) as max_salary,
+    MIN(salary) as min_salary
+FROM employees
+GROUP BY dept_id;
+
+✅ SCAN UNIQUE avec CTE:
+WITH dept_stats AS (
+    SELECT 
+        dept_id,
+        COUNT(*) as emp_count,
+        SUM(salary) as total_salary,
+        MAX(salary) as max_sal,
+        MIN(salary) as min_sal
+    FROM employees
+    GROUP BY dept_id
+)
+SELECT 
+    dept_id,
+    emp_count as total_employees,
+    total_salary / emp_count as avg_salary,
+    max_sal,
+    min_sal
+FROM dept_stats;
+
+### 2.2 Window Functions vs Subqueries
+❌ SUBQUERY pour rang:
+SELECT 
+    e.name,
+    e.salary,
+    e.dept_id,
+    (SELECT COUNT(*) 
+     FROM employees e2 
+     WHERE e2.dept_id = e.dept_id 
+     AND e2.salary > e.salary) + 1 as rank_in_dept
+FROM employees e;
+
+✅ WINDOW FUNCTION:
+SELECT 
+    name,
+    salary,
+    dept_id,
+    RANK() OVER (PARTITION BY dept_id ORDER BY salary DESC) as rank_in_dept
+FROM employees;
+
+## 3. OPTIMISATION DES JOINS
+
+### 3.1 Join Condition Redondante
+❌ REDONDANT:
+SELECT *
+FROM orders o
+JOIN customers c ON o.customer_id = c.id
+JOIN order_items oi ON o.id = oi.order_id
+WHERE o.customer_id = c.id  -- Redondant!
+
+✅ SIMPLIFIÉ:
+SELECT *
+FROM orders o
+JOIN customers c ON o.customer_id = c.id
+JOIN order_items oi ON o.id = oi.order_id;
+
+### 3.2 Prédicats de Join vs WHERE
+❌ PRÉDICATS DANS WHERE:
+SELECT *
+FROM employees e, departments d
+WHERE e.dept_id = d.dept_id
+AND d.location = 'NY';
+
+✅ PRÉDICATS DANS JOIN:
+SELECT *
+FROM employees e
+INNER JOIN departments d 
+    ON e.dept_id = d.dept_id 
+    AND d.location = 'NY';
+
+### 3.3 Cartesian Product → CROSS JOIN
+❌ IMPLICITE (dangereux):
+SELECT * 
+FROM employees, departments;  -- Produit cartésien!
+
+✅ EXPLICITE (intentionnel):
+SELECT * 
+FROM employees
+CROSS JOIN departments;
+
+## 4. OPTIMISATION DES PRÉDICATS WHERE
+
+### 4.1 LIKE avec Wildcard Initial
+❌ LENT (pas d'index):
+SELECT * FROM products 
+WHERE name LIKE '%apple%';
+
+✅ OPTIMISÉ (si possible):
+SELECT * FROM products 
+WHERE name LIKE 'apple%';  -- Utilise l'index
+
+### 4.2 Fonctions sur Colonnes Indexées
+❌ PAS D'INDEX (fonction sur colonne):
+SELECT * FROM employees
+WHERE UPPER(last_name) = 'SMITH';
+
+✅ INDEX UTILISABLE:
+SELECT * FROM employees
+WHERE last_name = 'Smith';
+
+### 4.3 IN vs OR
+❌ MULTIPLES OR:
+SELECT * FROM employees
+WHERE dept_id = 1 OR dept_id = 2 OR dept_id = 3;
+
+✅ IN (plus lisible, souvent plus rapide):
+SELECT * FROM employees
+WHERE dept_id IN (1, 2, 3);
+
+### 4.4 BETWEEN vs Comparaisons
+❌ DEUX COMPARAISONS:
+SELECT * FROM orders
+WHERE order_date >= '2024-01-01'
+AND order_date <= '2024-12-31';
+
+✅ BETWEEN (plus clair):
+SELECT * FROM orders
+WHERE order_date BETWEEN '2024-01-01' AND '2024-12-31';
+
+## 5. OPTIMISATION DES EXPRESSIONS
+
+### 5.1 Calculs dans WHERE
+❌ CALCUL À CHAQUE LIGNE:
+SELECT * FROM orders
+WHERE YEAR(order_date) = 2024;
+
+✅ CALCUL PRÉ-COMPUTÉ:
+SELECT * FROM orders
+WHERE order_date >= '2024-01-01'
+AND order_date < '2025-01-01';
+
+### 5.2 COALESCE vs CASE
+❌ CASE COMPLEXE:
+SELECT 
+    CASE 
+        WHEN status IS NULL THEN 'Unknown'
+        ELSE status
+    END as final_status
+FROM orders;
+
+✅ COALESCE (plus simple):
+SELECT COALESCE(status, 'Unknown') as final_status
+FROM orders;
+
+### 5.3 Division par Zéro
+❌ ERREUR POTENTIELLE:
+SELECT total / quantity as unit_price
+FROM sales;
+
+✅ SÉCURISÉ:
+SELECT 
+    CASE 
+        WHEN quantity = 0 THEN NULL
+        ELSE total / quantity
+    END as unit_price
+FROM sales;
+
+## 6. PATTERNS DE REQUÊTES RÉCURSIVES
+
+### 6.1 Hiérarchies avec CTE Récursif
+❌ MULTIPLES JOINS (limité):
+SELECT e1.name as employee, e2.name as manager
+FROM employees e1
+LEFT JOIN employees e2 ON e1.manager_id = e2.id;
+
+✅ CTE RÉCURSIF (arbres profonds):
+WITH RECURSIVE org_chart AS (
+    -- Ancrage
+    SELECT id, name, manager_id, 1 as level
+    FROM employees
+    WHERE manager_id IS NULL
+    
+    UNION ALL
+    
+    -- Récursion
+    SELECT e.id, e.name, e.manager_id, oc.level + 1
+    FROM employees e
+    INNER JOIN org_chart oc ON e.manager_id = oc.id
+)
+SELECT * FROM org_chart;
+
+## 7. OPTIMISATION DES VUES
+
+### 7.1 Vues Matérialisées
+❌ VUE STANDARD (recalculée à chaque fois):
+CREATE VIEW dept_summary AS
+SELECT dept_id, COUNT(*) as emp_count, AVG(salary) as avg_salary
+FROM employees
+GROUP BY dept_id;
+
+✅ VUE MATÉRIALISÉE (pré-calculée):
+CREATE MATERIALIZED VIEW dept_summary_mv AS
+SELECT dept_id, COUNT(*) as emp_count, AVG(salary) as avg_salary
+FROM employees
+GROUP BY dept_id;
+
+### 7.2 Vues avec Filtrage Précoce
+❌ FILTRAGE TARDIF:
+CREATE VIEW ny_employees AS
+SELECT * FROM employees;
+
+-- Usage:
+SELECT * FROM ny_employees WHERE dept_id = 1;
+
+✅ FILTRAGE PRÉCOCE:
+CREATE VIEW ny_employees AS
+SELECT * FROM employees WHERE location = 'NY';
+
+## 8. PATTERNS DE PAGINATION
+
+### 8.1 Pagination Traditionnelle
+❌ OFFSET/LIMIT (lent pour grands offsets):
+SELECT * FROM orders
+ORDER BY order_date DESC
+OFFSET 10000 LIMIT 100;
+
+✅ KEYSET PAGINATION (plus rapide):
+SELECT * FROM orders
+WHERE order_date < '2024-06-01'
+ORDER BY order_date DESC
+LIMIT 100;
+
+### 8.2 Pagination avec Total
+❌ DEUX REQUÊTES:
+SELECT * FROM orders LIMIT 100 OFFSET 0;
+SELECT COUNT(*) FROM orders;
+
+✅ WINDOW FUNCTION (une seule requête):
+SELECT 
+    *,
+    COUNT(*) OVER() as total_count
+FROM orders
+LIMIT 100 OFFSET 0;
+
+## 9. PATTERNS DE RECHERCHE TEXTUELLE
+
+### 9.1 Full-Text Search
+❌ LIKE MULTIPLE:
+SELECT * FROM documents
+WHERE content LIKE '%database%'
+OR content LIKE '%oracle%'
+OR content LIKE '%sql%';
+
+✅ FULL-TEXT SEARCH:
+CREATE INDEX idx_fts ON documents USING GIN(to_tsvector('english', content));
+
+SELECT * FROM documents
+WHERE to_tsvector('english', content) @@ to_tsquery('database & oracle & sql');
+
+## 10. PATTERNS DE GESTION DES NULL
+
+### 10.1 Tri avec NULL
+❌ NULL EN PREMIER (par défaut):
+SELECT * FROM employees
+ORDER BY commission DESC;  -- NULL d'abord
+
+✅ NULL À LA FIN:
+SELECT * FROM employees
+ORDER BY commission DESC NULLS LAST;
+
+### 10.2 Agrégation avec NULL
+❌ IGNORE NULL:
+SELECT AVG(commission) FROM employees;  -- Ignore NULL
+
+✅ INCLURE NULL comme 0:
+SELECT AVG(COALESCE(commission, 0)) FROM employees;
+
+## 11. PATTERNS DE PERFORMANCE AVANCÉS
+
+### 11.1 Partition Pruning
+❌ SCAN COMPLET:
+SELECT * FROM sales
+WHERE sale_date BETWEEN '2024-01-01' AND '2024-01-31';
+
+✅ PARTITION PRUNING (si table partitionnée par date):
+-- Oracle scanne seulement la partition de Janvier 2024
+
+### 11.2 Index-Only Scan
+❌ TABLE ACCESS:
+SELECT dept_id, COUNT(*)
+FROM employees
+GROUP BY dept_id;
+
+✅ INDEX-ONLY SCAN (si index sur dept_id):
+CREATE INDEX idx_dept ON employees(dept_id);
+
+### 11.3 Batch Updates
+❌ UPDATE LIGNE PAR LIGNE:
+UPDATE employees 
+SET salary = salary * 1.1 
+WHERE dept_id = 1;
+
+-- Boucle implicite dans l'application
+
+✅ BATCH UPDATE:
+UPDATE employees 
+SET salary = salary * 1.1 
+WHERE dept_id = 1;
+
+## 12. PATTERNS D'ANALYSE DE PERFORMANCE
+
+### 12.1 EXPLAIN ANALYZE
+Toujours utiliser EXPLAIN ANALYZE pour comprendre le plan d'exécution:
+
+EXPLAIN ANALYZE
+SELECT * FROM employees e
 JOIN departments d ON e.dept_id = d.dept_id
 WHERE d.location = 'NY';
 
-2. NOT EXISTS vs NOT IN
+### 12.2 Common Table Expressions (CTE) vs Subquery
+CTE souvent plus lisible et parfois mieux optimisé:
 
-❌ LENT (NOT IN avec NULL problématique):
+❌ SUBQUERY IMBRIQUÉE:
+SELECT * FROM (
+    SELECT * FROM (
+        SELECT * FROM employees WHERE salary > 50000
+    ) t1 WHERE dept_id = 1
+) t2 WHERE hire_date > '2020-01-01';
+
+✅ CTE:
+WITH high_salary AS (
+    SELECT * FROM employees WHERE salary > 50000
+),
+dept_filter AS (
+    SELECT * FROM high_salary WHERE dept_id = 1
+)
+SELECT * FROM dept_filter WHERE hire_date > '2020-01-01';
+
+## 13. PATTERNS DE SÉCURITÉ
+
+### 13.1 SQL Injection
+❌ VULNÉRABLE:
+query = "SELECT * FROM users WHERE username = '" + user_input + "'"
+
+✅ SÉCURISÉ:
+query = "SELECT * FROM users WHERE username = ?"
+-- Utiliser des paramètres préparés
+
+### 13.2 Data Masking
+❌ DONNÉES SENSIBLES EXPOSÉES:
+SELECT ssn, salary FROM employees;
+
+✅ MASQUAGE:
+SELECT 
+    RPAD('*', LENGTH(ssn)-4, '*') || SUBSTR(ssn, -4) as masked_ssn,
+    '*****' as masked_salary
+FROM employees;
+
+## 14. PATTERNS DE MAINTENANCE
+
+### 14.1 Vacuum/Analyze
+Pour PostgreSQL, exécuter régulièrement:
+
+VACUUM ANALYZE employees;
+
+### 14.2 Index Rebuild
+Pour les index fragmentés:
+
+❌ INDEX FRAGMENTÉ:
+SELECT * FROM employees WHERE last_name = 'Smith';
+
+✅ REBUILD:
+REINDEX INDEX idx_last_name;
+
+## 15. PATTERNS SPÉCIFIQUES ORACLE
+
+### 15.1 ROWNUM vs FETCH FIRST
+❌ ANCIENNE SYNTAXE:
 SELECT * FROM employees
-WHERE dept_id NOT IN (SELECT dept_id FROM departments);
+WHERE ROWNUM <= 100;
 
-✅ RAPIDE (NOT EXISTS):
-SELECT * FROM employees e
-WHERE NOT EXISTS (
-  SELECT 1 FROM departments d WHERE d.dept_id = e.dept_id
-);
+✅ MODERNE (Oracle 12c+):
+SELECT * FROM employees
+FETCH FIRST 100 ROWS ONLY;
 
-3. DISTINCT vs GROUP BY
+### 15.2 NVL vs COALESCE
+❌ NVL (Oracle spécifique):
+SELECT NVL(commission, 0) FROM employees;
 
-❌ LENT (tri puis suppression doublons):
-SELECT DISTINCT dept_id FROM employees;
+✅ COALESCE (Standard SQL):
+SELECT COALESCE(commission, 0) FROM employees;
 
-✅ PLUS RAPIDE (agrégation):
-SELECT dept_id FROM employees GROUP BY dept_id;
-
-4. COUNT(*) vs COUNT(column)
-
-✅ TOUJOURS utiliser COUNT(*):
-- Plus rapide
-- Compte toutes lignes incluant NULL
-
-5. UNION vs UNION ALL
-
-Si pas de doublons:
-UNION ALL (évite tri de déduplication)
-
-6. WHERE vs HAVING
-
-Filtrer AVANT agrégation:
-SELECT dept_id, AVG(salary)
+### 15.3 CONNECT BY vs CTE Récursif
+❌ HIÉRARCHIE ORACLE:
+SELECT LEVEL, name
 FROM employees
-WHERE salary > 50000  -- Filtre avant
-GROUP BY dept_id;
+START WITH manager_id IS NULL
+CONNECT BY PRIOR id = manager_id;
 
-Pas après:
-SELECT dept_id, AVG(salary)
-FROM employees
-GROUP BY dept_id
-HAVING AVG(salary) > 50000;  -- Seulement si condition sur agrégat
-EOF
+✅ CTE RÉCURSIF (Standard SQL):
+WITH RECURSIVE org AS (
+    SELECT id, name, manager_id, 1 as level
+    FROM employees
+    WHERE manager_id IS NULL
+    UNION ALL
+    SELECT e.id, e.name, e.manager_id, o.level + 1
+    FROM employees e
+    JOIN org o ON e.manager_id = o.id
+)
+SELECT * FROM org;
+
+## 16. CHECKLIST DE RÉÉCRITURE
+
+Avant de soumettre une requête, vérifier:
+
+### 16.1 Performance
+□ Utiliser EXISTS au lieu de IN pour les sous-requêtes
+□ Éviter les fonctions dans les clauses WHERE
+□ Préférer UNION ALL à UNION si pas de doublons
+□ Utiliser des index appropriés
+
+### 16.2 Lisibilité
+□ Nommer les alias explicitement
+□ Utiliser CTE pour les requêtes complexes
+□ Formater correctement le code SQL
+□ Ajouter des commentaires pour les parties complexes
+
+### 16.3 Maintenabilité
+□ Éviter SELECT * (spécifier les colonnes)
+□ Utiliser des vues pour les requêtes réutilisables
+□ Standardiser les conventions de nommage
+□ Documenter les requêtes complexes
+
+### 16.4 Sécurité
+□ Utiliser des paramètres préparés
+□ Valider les entrées utilisateur
+□ Appliquer le principe du moindre privilège
+□ Masquer les données sensibles
+
+## 17. OUTILS D'ANALYSE
+
+### 17.1 Pour Oracle:
+- EXPLAIN PLAN
+- SQL*Trace
+- TKPROF
+- AWR Reports
+- SQL Tuning Advisor
+
+### 17.2 Pour PostgreSQL:
+- EXPLAIN ANALYZE
+- pg_stat_statements
+- auto_explain
+- pgBadger
+
+### 17.3 Pour MySQL:
+- EXPLAIN
+- Performance Schema
+- Slow Query Log
+- MySQL Enterprise Monitor
+
+## 18. RÈGLES D'OR
+
+1. **Mesurer avant d'optimiser** - Toujours analyser avec EXPLAIN
+2. **Indexer intelligemment** - Pas trop, pas trop peu
+3. **Normaliser les données** - Mais dénormaliser si nécessaire pour la performance
+4. **Batch les opérations** - Éviter les boucles en application
+5. **Cache intelligemment** - Utiliser les vues matérialisées
+6. **Partitionner les grandes tables** - Par date, région, etc.
+7. **Monitorer constamment** - Avoir des alertes sur les requêtes lentes
+8. **Documenter les optimisations** - Pour le prochain développeur
+9. **Tester avec des données réelles** - Pas seulement avec des petits jeux de test
+10. **Penser à la maintenance** - Les requêtes doivent être maintenables
+
+## 19. EXEMPLES COMPLETS
+
+### 19.1 Avant/Après complet
+❌ **AVANT** (lent, illisible):
+SELECT DISTINCT e.first_name, e.last_name, d.dept_name 
+FROM employees e, departments d 
+WHERE e.dept_id = d.dept_id 
+AND e.dept_id IN (
+    SELECT dept_id 
+    FROM employees 
+    GROUP BY dept_id 
+    HAVING COUNT(*) > 10
+)
+AND e.salary > (
+    SELECT AVG(salary) 
+    FROM employees e2 
+    WHERE e2.dept_id = e.dept_id
+)
+ORDER BY e.last_name;
+
+✅ **APRÈS** (optimisé, lisible):
+WITH dept_stats AS (
+    SELECT 
+        dept_id,
+        COUNT(*) as emp_count,
+        AVG(salary) as avg_salary
+    FROM employees
+    GROUP BY dept_id
+    HAVING COUNT(*) > 10
+)
+SELECT DISTINCT 
+    e.first_name,
+    e.last_name,
+    d.dept_name
+FROM employees e
+INNER JOIN departments d 
+    ON e.dept_id = d.dept_id
+INNER JOIN dept_stats ds 
+    ON e.dept_id = ds.dept_id
+WHERE e.salary > ds.avg_salary
+ORDER BY e.last_name;
+
+## 20. RESSOURCES
+
+### 20.1 Livres recommandés:
+- "SQL Performance Explained" - Markus Winand
+- "SQL Antipatterns" - Bill Karwin
+- "High Performance MySQL" - Baron Schwartz
+- "Oracle Performance Tuning" - Guy Harrison
+
+### 20.2 Outils en ligne:
+- SQLFiddle (pour tester)
+- Explain.depesz.com (pour analyser)
+- pgMustard (pour PostgreSQL)
+- Oracle Live SQL
+
+### 20.3 Communautés:
+- Stack Overflow (tags: sql, oracle, postgresql, mysql)
+- DBA Stack Exchange
+- Oracle Developer Community
+- PostgreSQL mailing lists
+
+---
+

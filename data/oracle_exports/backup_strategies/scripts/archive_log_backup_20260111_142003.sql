@@ -1,8 +1,0 @@
-
--- Sauvegarde des archive logs
-RUN {
-  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '/u01/backup/oracle/arch_%U';
-  BACKUP AS COMPRESSED BACKUPSET
-    ARCHIVELOG ALL DELETE INPUT;
-  RELEASE CHANNEL ch1;
-}

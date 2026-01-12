@@ -1,21 +1,21 @@
 SQL_ID,SCHEMA_NAME,EXECUTIONS,TOTAL_ELAPSED_SEC,AVG_ELAPSED_SEC,CPU_TIME_SEC,BUFFER_GETS,DISK_READS,ROWS_PROCESSED,SQL_TEXT
-b39m8n96gxk7c,SYS,4,33.23,8.3073,31.79,196370,308,0,"call dbms_autotask_prvt.run_autotask ( :0,:1 )"
-ampw9ddqufjd3,SYS,4,32.99,8.2478,31.56,196020,304,4,begin /*KAPI:capture*/ dbms_auto_index_internal.capture_sts; end;
-0qbzfjt00pbsx,SYS,11,13.92,1.2658,1.26,1770,78,11,"BEGIN   dbms_isched.log_dbms_output( :logid, :errs, :outputWasEnabled ); END; "
-7hnc5ucz8grnt,SYS,4,13.22,3.3039,13.0,2605,33,2362,SELECT VALUE(P) FROM TABLE(DBMS_SQLTUNE.SELECT_CURSOR_CACHE( BASIC_FILTER=> q'# (module is null or (module != '#' || :B1 || q'#' and module != '#' || :B2 || q'#')) and sql_text not like 'SELECT /* DS_SVC */%'                  and sql_text not like 'SELECT /* OPT_DYN_SAMP */%'                  and sq
-c61ajdcqbqn42,SYS,2,11.97,5.9827,11.85,1485,0,606,"SELECT  new.sql_seq, old.plan_hash_value, sqlset_row(new.sql_id,new.force_matching_signature,  new.sql_text, new.object_list,  new.bind_data, new.parsing_schema_name,  new.module, new.action, new.elapsed_time,  new.cpu_time, new.buffer_gets,  new.disk_reads, new.direct_writes,  new.rows_processed, n"
-a8xypykqc348c,SYS,4,9.31,2.3277,0.8,2032,89,4,"BEGIN    dbms_stats_internal.advisor_setup_obj_filter(:tid, :rid, 'EXECUTE', FALSE); END;"
-fn0stp00nzmj6,SYS,2,8.78,4.3921,8.54,101,0,1202," SELECT /*+ first_rows(1) */ sql_id, force_matching_signature, sql_text, cast(NULL as SQL_OBJECTS) object_list, bind_data, parsing_schema_name, module, action, elapsed_time, cpu_time, buffer_gets, disk_reads, direct_writes,rows_processed, fetches, executions, end_of_fetch_count, optimizer_cost, opti"
-4034bt1vcd4xr,SYSTEM,2,3.51,1.7571,3.16,21000,554,2,BEGIN     EXECUTE IMMEDIATE 'DROP USER testuser CASCADE'; EXCEPTION     WHEN OTHERS THEN NULL; END;
-01uy9sb7w8a9g,SYS,1,2.77,2.7741,1.29,1416,44,1," begin      dbms_aqadm_sys.remove_all_nondurablesub(:1, :2);   end;"
-2sawmaavc15ah,SYS,2,2.6,1.299,2.59,27391,0,19,"MERGE /*+ dynamic_sampling(4) dynamic_sampling_est_cdn  */ INTO SYS.MON_MODS_ALL$ MM USING ( SELECT OBJ#, SUM(FLGS) FLGS FROM ( SELECT OBJ#, :B2 FLGS FROM ( SELECT TAB.OBJ# FROM (SELECT T.OBJ# OBJ#, T.OBJ# BO#, T.ANALYZETIME FROM SYS.TAB$ T WHERE BITAND(T.FLAGS,16) = 16 UNION ALL SELECT T.OBJ# OBJ#,"
-9tfwp43fbwd5f,SYS,1,2.52,2.5201,2.51,5087,5,7,"SELECT * FROM (SELECT /*+ ordered full(t) use_hash(t)                OPT_PARAM('_parallel_syspls_obey_force' 'false') */ 'TABLE' OBJTYPE, U.NAME OWNNAME, O.NAME OBJNAME, NULL PARTNAME, NULL SUBPARTNAME, BITAND(T.TRIGFLAG, 67108864 + 134217728) LOCK_FLAGS, O.OBJ# OBJ_NUM, NULL FXT_TYP, DBMS_STATS_INT"
-a3jpjzh7mtwwp,SYS,10,2.35,0.2345,0.14,297,107,67,"select /*+ index(idl_ub2$ i_idl_ub21) */ piece#,length,piece from idl_ub2$ where obj#=:1 and part=:2 and version=:3 order by piece#"
-c61ajdcqbqn42,SYS,1,1.82,1.8235,1.76,3426,34,504,"SELECT  new.sql_seq, old.plan_hash_value, sqlset_row(new.sql_id,new.force_matching_signature,  new.sql_text, new.object_list,  new.bind_data, new.parsing_schema_name,  new.module, new.action, new.elapsed_time,  new.cpu_time, new.buffer_gets,  new.disk_reads, new.direct_writes,  new.rows_processed, n"
-bj1mt6pa09d3p,SYS,4,1.82,0.4538,1.76,2807,12,4," BEGIN    DBMS_SCHEDULER.SET_JOB_ARGUMENT_VALUE (      job_name   => :job_name,      argument_position   => 2,      argument_value      => :job_magic_num);    DBMS_SCHEDULER.SET_ATTRIBUTE(      name       => :job_name,      attribute  => 'instance_id',      value      => :job_dest_inst);   DBMS_SCHE"
-fh5ufah919kun,SYS,10,1.81,0.1811,0.06,127,20,22,"select /*+ index(idl_sb4$ i_idl_sb41) */ piece#,length,piece from idl_sb4$ where obj#=:1 and part=:2 and version=:3 order by piece#"
-8594ra3zcssdf,SYS,9,1.68,0.1871,1.68,747,0,13,"SELECT /*+ no_merge(v) no_push_pred(v)                   OPT_PARAM('_parallel_syspls_obey_force' 'false') */ '""'||LOC_IND_OWNER||'""' IND_OWNER, '""'||LOC_IND_NAME||'""' IND_NAME, '""'||LOC_PART_NAME||'""' PART_NAME, OBJ_NUM, IPROP FROM ( SELECT /*+ all_rows */ UI.NAME LOC_IND_OWNER, OIP.NAME LOC_IND_NAM"
-bw0b5zv1wxryq,SYS,4,1.64,0.4112,0.04,41,4,4,"SELECT UPPER(NAME), RULE_TYPE, DESCRIPTION, FLAGS FROM SYS.X$QOSADVRULEDEF WHERE RULE_ID = :B1 "
-c61ajdcqbqn42,SYS,1,1.38,1.3826,1.38,1438,0,183,"SELECT  new.sql_seq, old.plan_hash_value, sqlset_row(new.sql_id,new.force_matching_signature,  new.sql_text, new.object_list,  new.bind_data, new.parsing_schema_name,  new.module, new.action, new.elapsed_time,  new.cpu_time, new.buffer_gets,  new.disk_reads, new.direct_writes,  new.rows_processed, n"
-9tt2m0mpc2qqp,SYS,10,1.38,0.1382,0.27,133,33,21,"select /*+ index(idl_char$ i_idl_char1) */ piece#,length,piece from idl_char$ where obj#=:1 and part=:2 and version=:3 order by piece#"
-fn0stp00nzmj6,SYS,1,1.27,1.2669,1.22,1907,32,504," SELECT /*+ first_rows(1) */ sql_id, force_matching_signature, sql_text, cast(NULL as SQL_OBJECTS) object_list, bind_data, parsing_schema_name, module, action, elapsed_time, cpu_time, buffer_gets, disk_reads, direct_writes,rows_processed, fetches, executions, end_of_fetch_count, optimizer_cost, opti"
+slow_0000,APP_USER,29,3.6435916047207435,1.5457716502305487,10.026137175907708,212098,70192,43995,DELETE FROM temp_table WHERE created_date < SYSDATE - 7
+slow_0001,HR,11,18.344121643765494,4.778344913888688,0.5851206493823733,602548,3472,62242,"INSERT INTO audit_log (user_id, action, timestamp) VALUES (72, 'DELETE', SYSDATE)"
+slow_0002,SCOTT,6,12.596893433287804,1.8066731613476543,0.9498015839214375,317800,4484,39561,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id"
+slow_0003,HR,7,17.37670195536714,2.805346041108201,4.061919919653953,663690,90402,20162,SELECT * FROM employees WHERE department_id = 8
+slow_0004,HR,15,22.745001877498893,0.6093699766179284,11.485671985731297,385772,63623,94060,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 645
+slow_0005,APP_USER,83,14.194001011738576,4.689306064440784,10.851853295243574,790308,61675,61235,CREATE INDEX idx_emp_dept ON employees(department_id)
+slow_0006,SCOTT,88,6.346274979828393,2.246882266811899,6.810020631588501,904296,58441,37992,SELECT * FROM employees WHERE department_id = 9
+slow_0007,APP_USER,31,27.752223613767768,4.04240825431655,5.765881344474211,554351,22903,23957,"INSERT INTO audit_log (user_id, action, timestamp) VALUES (67, 'LOGOUT', SYSDATE)"
+slow_0008,HR,13,8.738132014009123,4.693045700703837,10.244358462623058,840678,50993,93971,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id"
+slow_0009,HR,95,19.62929997050162,4.782628047217394,9.228541465592933,365286,68956,89474,"INSERT INTO audit_log (user_id, action, timestamp) VALUES (5, 'DELETE', SYSDATE)"
+slow_0010,APP_USER,48,8.275927708352425,2.224813370054295,2.4345848440845135,664555,3264,89241,SELECT * FROM employees WHERE department_id = 7
+slow_0011,HR,95,14.07859384207045,2.3533777884615423,11.710881031494262,923528,92369,11677,ALTER TABLE customers ADD (created_date DATE DEFAULT SYSDATE)
+slow_0012,HR,71,6.535105414724016,2.44415216496007,9.177338009904085,476093,47913,38829,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30
+slow_0013,HR,29,17.323093836155763,1.4083919853368752,3.383214133568267,321900,16790,76948,SELECT * FROM employees WHERE department_id = 5
+slow_0014,SCOTT,51,18.062128589970136,3.0297048124161226,4.5245453443297885,666392,38343,86988,"INSERT INTO audit_log (user_id, action, timestamp) VALUES (20, 'DELETE', SYSDATE)"
+slow_0015,SCOTT,91,14.160946947483108,3.753924534206255,9.91397976182564,571223,16503,52661,"INSERT INTO audit_log (user_id, action, timestamp) VALUES (22, 'DELETE', SYSDATE)"
+slow_0016,SCOTT,91,7.3767698531003685,1.694504815708174,13.22469286129664,613907,99879,1761,UPDATE employees SET salary = salary * 1.1 WHERE employee_id = 734
+slow_0017,HR,66,18.17817462371285,1.9721597402549642,1.6382076213349657,492757,57709,27255,"SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id"
+slow_0018,SCOTT,36,19.431345757513014,1.2558158565947397,6.591558865871302,382678,8956,89413,SELECT COUNT(*) FROM orders WHERE order_date > SYSDATE - 30
+slow_0019,SCOTT,91,5.23384199167009,4.328910292601195,12.968610084447857,895083,15060,90738,DELETE FROM temp_table WHERE created_date < SYSDATE - 7

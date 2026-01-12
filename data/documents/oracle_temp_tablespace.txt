@@ -1,20 +1,590 @@
-TEMP TABLESPACE ORACLE
-======================
-Utilisé pour:
-- Tris (ORDER BY, GROUP BY)
-- Joins (HASH JOIN, SORT MERGE)
-- CREATE INDEX
-- Requêtes analytiques (RANK, ROW_NUMBER)
+TEMP TABLESPACE ORACLE  
+========================================
 
-Monitoring:
-SELECT tablespace_name, SUM(bytes_used)/1024/1024 AS mb_used
+## 1. CONCEPTS FONDAMENTAUX TEMP
+
+### 1.1 Définition et rôle
+Le tablespace TEMP (temporaire) est utilisé pour stocker temporairement les données intermédiaires lors d'opérations nécessitant un espace de travail temporaire.
+
+**Opérations utilisant TEMP :**
+- Tris (ORDER BY, GROUP BY, DISTINCT)
+- Jointures complexes (HASH JOIN, SORT MERGE JOIN)
+- Création et reconstruction d'index
+- Requêtes analytiques (RANK(), ROW_NUMBER(), LAG/LEAD)
+- Opérations ensemblistes (UNION, MINUS, INTERSECT)
+- Opérations bulk DML
+- Requêtes avec sous-requêtes complexes
+- Utilisation de fonctions XML
+
+### 1.2 Types de tablespaces temporaires
+```sql
+-- Types de tablespaces temporaires
+SELECT tablespace_name, contents, extent_management, allocation_type
+FROM dba_tablespaces
+WHERE contents = 'TEMPORARY';
+
+-- Types d'extents
+SELECT DISTINCT extent_management 
+FROM dba_tablespaces 
+WHERE contents = 'TEMPORARY';
+Dictionnaire vs Localement managé :
+
+Dictionary Managed (obsolète) : Extents gérés via le dictionnaire
+
+Locally Managed (recommandé) : Extents gérés localement avec bitmaps
+
+2. CONFIGURATION ET CRÉATION
+2.1 Création d'un tablespace TEMP
+sql
+-- Syntaxe complète de création
+CREATE TEMPORARY TABLESPACE temp
+TEMPFILE '/u01/oradata/temp01.dbf' SIZE 2G
+AUTOEXTEND ON NEXT 512M MAXSIZE 32G
+EXTENT MANAGEMENT LOCAL UNIFORM SIZE 1M
+TABLESPACE GROUP ''  -- Pour RAC
+;
+
+-- Création avec plusieurs tempfiles
+CREATE TEMPORARY TABLESPACE bigtemp
+TEMPFILE '/u01/oradata/temp01.dbf' SIZE 4G,
+         '/u02/oradata/temp02.dbf' SIZE 4G
+EXTENT MANAGEMENT LOCAL UNIFORM SIZE 4M;
+
+-- Vérification
+SELECT tablespace_name, file_name, bytes/1024/1024 as size_mb, autoextensible
+FROM dba_temp_files
+ORDER BY tablespace_name, file_name;
+2.2 Paramètres associés
+Paramètres mémoire importants :
+
+sql
+-- Paramètres PGA
+SELECT name, value, description
+FROM v$parameter
+WHERE name IN ('pga_aggregate_target', 'sort_area_size', 
+               'hash_area_size', 'workarea_size_policy')
+ORDER BY name;
+
+-- Configuration recommandée
+ALTER SYSTEM SET pga_aggregate_target = 2G SCOPE=BOTH;
+ALTER SYSTEM SET workarea_size_policy = AUTO SCOPE=BOTH;
+3. MONITORING ET SURVEILLANCE
+3.1 Utilisation en temps réel
+sql
+-- Utilisation actuelle
+SELECT 
+    tablespace_name,
+    ROUND(SUM(bytes_used)/1024/1024, 2) AS mb_used,
+    ROUND(SUM(bytes_cached)/1024/1024, 2) AS mb_cached,
+    ROUND(SUM(bytes_free)/1024/1024, 2) AS mb_free,
+    COUNT(*) as extent_count
 FROM v$temp_extent_pool
 GROUP BY tablespace_name;
 
-Si plein:
-- Optimiser requêtes (réduire tris)
-- Augmenter PGA_AGGREGATE_TARGET
-- Étendre TEMP tablespace
+-- Sessions utilisant beaucoup de TEMP
+SELECT 
+    s.sid,
+    s.serial#,
+    s.username,
+    s.program,
+    s.module,
+    u.tablespace,
+    u.contents,
+    u.segtype,
+    ROUND(u.blocks * t.block_size/1024/1024, 2) as mb_used,
+    u.sql_id
+FROM v$tempseg_usage u
+JOIN v$session s ON u.session_addr = s.saddr
+JOIN dba_tablespaces t ON u.tablespace = t.tablespace_name
+WHERE u.blocks > 1000  -- > ~8MB
+ORDER BY u.blocks DESC;
+3.2 Statistiques historiques
+sql
+-- Historique d'utilisation (AWR)
+SELECT 
+    snap_id,
+    TO_CHAR(begin_interval_time, 'DD/MM HH24:MI') as periode,
+    temp_space_allocated_total,
+    temp_space_used_total
+FROM dba_hist_tempstat ts
+JOIN dba_hist_snapshot s ON ts.snap_id = s.snap_id
+WHERE begin_interval_time > SYSDATE - 7
+ORDER BY snap_id DESC;
 
-ALTER TABLESPACE temp ADD TEMPFILE '/u01/data/temp02.dbf' SIZE 2G;
-EOF
+-- Top utilisateurs TEMP
+SELECT 
+    username,
+    program,
+    SUM(temp_space_allocated) as total_allocated,
+    SUM(temp_space_used) as total_used,
+    COUNT(*) as operation_count
+FROM dba_hist_active_sess_history
+WHERE temp_space_allocated > 0
+AND sample_time > SYSDATE - 1
+GROUP BY username, program
+ORDER BY total_allocated DESC;
+3.3 Espace disponible et fragmentation
+sql
+-- Espace libre et fragmentation
+SELECT 
+    tablespace_name,
+    file_id,
+    ROUND(bytes_free/1024/1024, 2) as free_mb,
+    ROUND(bytes_used/1024/1024, 2) as used_mb,
+    ROUND(max_bytes_free/1024/1024, 2) as max_free_mb,
+    relative_fno
+FROM v$temp_space_header;
+
+-- Fragmentation
+SELECT 
+    tablespace_name,
+    COUNT(*) as extent_count,
+    ROUND(AVG(bytes)/1024, 2) as avg_kb,
+    ROUND(MIN(bytes)/1024, 2) as min_kb,
+    ROUND(MAX(bytes)/1024, 2) as max_kb
+FROM dba_free_space
+WHERE tablespace_name IN (
+    SELECT tablespace_name 
+    FROM dba_tablespaces 
+    WHERE contents = 'TEMPORARY'
+)
+GROUP BY tablespace_name;
+4. TUNING ET OPTIMISATION
+4.1 Dimensionnement optimal
+Calcul de la taille nécessaire :
+
+sql
+-- Analyse besoins TEMP
+WITH temp_stats AS (
+    SELECT 
+        MAX(temp_space_allocated_total) as max_temp_allocated,
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY temp_space_allocated_total) as p95_temp_allocated,
+        AVG(temp_space_allocated_total) as avg_temp_allocated
+    FROM dba_hist_tempstat
+    WHERE snap_id IN (
+        SELECT snap_id 
+        FROM dba_hist_snapshot 
+        WHERE begin_interval_time > SYSDATE - 30
+    )
+)
+SELECT 
+    ROUND(max_temp_allocated/1024/1024, 2) as max_mb,
+    ROUND(p95_temp_allocated/1024/1024, 2) as p95_mb,
+    ROUND(avg_temp_allocated/1024/1024, 2) as avg_mb,
+    ROUND(p95_temp_allocated * 1.5/1024/1024, 2) as recommended_mb
+FROM temp_stats;
+Règles de dimensionnement :
+
+Base OLTP légère : 2-5% de la taille de la base
+
+Base DW/BI : 10-20% de la taille de la base
+
+Applications analytiques lourdes : 20-30% de la taille de la base
+
+Toujours prévoir 50% de marge pour les pics
+
+4.2 Optimisation des requêtes
+Identification requêtes gourmandes :
+
+sql
+-- Top requêtes utilisant TEMP
+SELECT 
+    sql_id,
+    sql_text,
+    executions,
+    disk_reads,
+    buffer_gets,
+    rows_processed,
+    ROUND(elapsed_time/1000000, 2) as elapsed_sec,
+    ROUND(cpu_time/1000000, 2) as cpu_sec,
+    sorts,
+    ROUND(physical_read_bytes/1024/1024, 2) as phys_read_mb,
+    ROUND(physical_write_bytes/1024/1024, 2) as phys_write_mb
+FROM v$sql
+WHERE physical_write_bytes > 0
+AND sql_text NOT LIKE '%v$sql%'
+ORDER BY physical_write_bytes DESC
+FETCH FIRST 20 ROWS ONLY;
+
+-- Plan d'exécution avec opérations TEMP
+EXPLAIN PLAN FOR
+SELECT * FROM votre_requete_complexe;
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+Techniques d'optimisation :
+
+Réduire les tris inutiles
+
+Utiliser des index pour éviter les full table scans
+
+Limiter l'utilisation de DISTINCT
+
+Optimiser les jointures avec bons index
+
+Utiliser la pagination pour éviter les gros résultats
+
+4.3 Paramétrage mémoire
+sql
+-- Optimisation PGA
+-- 1. Vérifier la taille actuelle
+SELECT 
+    ROUND(value/1024/1024, 2) as pga_target_mb
+FROM v$parameter 
+WHERE name = 'pga_aggregate_target';
+
+-- 2. Analyser l'efficacité PGA
+SELECT 
+    ROUND(pga_target_for_estimate/1024/1024, 2) as target_mb,
+    estd_pga_cache_hit_percentage as cache_hit_pct,
+    estd_overalloc_count as overalloc_count
+FROM v$pga_target_advice
+ORDER BY pga_target_for_estimate;
+
+-- 3. Ajuster PGA
+ALTER SYSTEM SET pga_aggregate_target = 4G SCOPE=BOTH;
+5. PROBLÈMES COURANTS ET SOLUTIONS
+5.1 Erreur ORA-1652: Unable to extend temp segment
+Causes :
+
+TEMP tablespace insuffisant
+
+Nombre insuffisant de tempfiles
+
+Limite MAXSIZE atteinte
+
+Quota utilisateur dépassé
+
+Solutions :
+
+sql
+-- 1. Diagnostic
+SELECT 
+    tablespace_name,
+    ROUND(SUM(bytes_used)/1024/1024, 2) as used_mb,
+    ROUND(SUM(bytes_free)/1024/1024, 2) as free_mb,
+    ROUND(MAX(maxbytes)/1024/1024, 2) as max_mb
+FROM v$temp_extent_pool
+GROUP BY tablespace_name;
+
+-- 2. Ajouter un tempfile
+ALTER TABLESPACE temp 
+ADD TEMPFILE '/u01/data/temp02.dbf' 
+SIZE 2G 
+AUTOEXTEND ON NEXT 512M 
+MAXSIZE 32G;
+
+-- 3. Redimensionner tempfile existant
+ALTER DATABASE TEMPFILE '/u01/data/temp01.dbf' 
+RESIZE 10G;
+
+-- 4. Augmenter MAXSIZE
+ALTER DATABASE TEMPFILE '/u01/data/temp01.dbf' 
+AUTOEXTEND ON MAXSIZE 64G;
+5.2 Performance dégradée due aux opérations TEMP
+sql
+-- Identification des goulets d'étranglement
+SELECT 
+    event,
+    total_waits,
+    time_waited,
+    average_wait,
+    wait_class
+FROM v$system_event
+WHERE wait_class = 'User I/O'
+AND event LIKE '%temp%'
+ORDER BY time_waited DESC;
+
+-- Sessions en attente sur TEMP
+SELECT 
+    s.sid,
+    s.serial#,
+    s.username,
+    s.event,
+    s.wait_time,
+    s.seconds_in_wait,
+    s.state,
+    s.sql_id
+FROM v$session s
+WHERE s.event LIKE '%temp%'
+AND s.status = 'ACTIVE';
+5.3 Fragmentation excessive
+sql
+-- Détection fragmentation
+SELECT 
+    tablespace_name,
+    file_id,
+    block_id,
+    blocks,
+    bytes/1024 as size_kb,
+    segment_type
+FROM dba_extents
+WHERE tablespace_name = 'TEMP'
+AND segment_type = 'TEMPORARY'
+ORDER BY blocks DESC;
+
+-- Solution : Reconstruire TEMP tablespace
+-- 1. Créer nouveau TEMP tablespace
+CREATE TEMPORARY TABLESPACE temp_new
+TEMPFILE '/u01/oradata/temp_new01.dbf' SIZE 4G
+EXTENT MANAGEMENT LOCAL UNIFORM SIZE 1M;
+
+-- 2. Basculer vers nouveau tablespace
+ALTER DATABASE DEFAULT TEMPORARY TABLESPACE temp_new;
+
+-- 3. Vérifier
+SELECT property_value 
+FROM database_properties 
+WHERE property_name = 'DEFAULT_TEMP_TABLESPACE';
+
+-- 4. Supprimer ancien tablespace (après vérification)
+DROP TABLESPACE temp INCLUDING CONTENTS AND DATAFILES;
+6. GESTION AVANCÉE
+6.1 Tablespaces TEMP multiples
+sql
+-- Création tablespaces TEMP multiples
+CREATE TEMPORARY TABLESPACE temp_oltp
+TEMPFILE '/u01/oradata/temp_oltp01.dbf' SIZE 2G;
+
+CREATE TEMPORARY TABLESPACE temp_reporting
+TEMPFILE '/u01/oradata/temp_report01.dbf' SIZE 10G;
+
+-- Attribution par utilisateur
+ALTER USER reporting_user TEMPORARY TABLESPACE temp_reporting;
+ALTER USER oltp_user TEMPORARY TABLESPACE temp_oltp;
+
+-- Vérification
+SELECT username, default_tablespace, temporary_tablespace
+FROM dba_users
+WHERE temporary_tablespace IS NOT NULL;
+6.2 TEMP Tablespace Groups (RAC)
+sql
+-- Création groupe TEMP pour RAC
+CREATE TEMPORARY TABLESPACE temp1
+TEMPFILE '/u01/oradata/temp101.dbf' SIZE 2G
+TABLESPACE GROUP temp_grp;
+
+CREATE TEMPORARY TABLESPACE temp2  
+TEMPFILE '/u02/oradata/temp201.dbf' SIZE 2G
+TABLESPACE GROUP temp_grp;
+
+-- Vérification groupe
+SELECT * FROM dba_tablespace_groups;
+
+-- Attribution groupe par défaut
+ALTER DATABASE DEFAULT TEMPORARY TABLESPACE temp_grp;
+6.3 Compression TEMP
+sql
+-- TEMP tablespace avec compression (Oracle 12c+)
+CREATE TEMPORARY TABLESPACE temp_comp
+TEMPFILE '/u01/oradata/temp_comp01.dbf' SIZE 2G
+TEMP TABLESPACE GROUP ''
+COMPRESS FOR OLTP;  -- ou COMPRESS FOR QUERY HIGH
+
+-- Vérification compression
+SELECT tablespace_name, compression 
+FROM dba_tablespaces 
+WHERE contents = 'TEMPORARY';
+7. PERFORMANCE TUNING
+7.1 Configuration I/O optimale
+sql
+-- Distribution TEMP sur plusieurs disques
+ALTER TABLESPACE temp
+ADD TEMPFILE '/disk1/oradata/temp01.dbf' SIZE 4G,
+ADD TEMPFILE '/disk2/oradata/temp02.dbf' SIZE 4G,
+ADD TEMPFILE '/disk3/oradata/temp03.dbf' SIZE 4G;
+
+-- Monitoring I/O TEMP
+SELECT 
+    tf.name as tempfile,
+    phyrds as physical_reads,
+    phywrts as physical_writes,
+    ROUND(phyblkrd/blocks, 2) as avg_reads_per_block,
+    ROUND(phyblkwrt/blocks, 2) as avg_writes_per_block
+FROM v$tempfile tf
+JOIN v$tempstat ts ON tf.file# = ts.file#
+ORDER BY phywrts DESC;
+7.2 Tuning des opérations utilisant TEMP
+sql
+-- Analyse opérations de tri
+SELECT 
+    name,
+    value
+FROM v$sysstat
+WHERE name IN (
+    'sorts (memory)',
+    'sorts (disk)',
+    'sorts (rows)',
+    'workarea executions - optimal',
+    'workarea executions - onepass',
+    'workarea executions - multipass'
+);
+
+-- Calcul taux de tri en mémoire
+SELECT 
+    ROUND(100 * (a.value/b.value), 2) as memory_sort_pct
+FROM v$sysstat a, v$sysstat b
+WHERE a.name = 'sorts (memory)'
+AND b.name = 'sorts (memory) + sorts (disk)';
+
+-- Si < 95%, augmenter PGA
+8. MAINTENANCE ET ADMINISTRATION
+8.1 Scripts de maintenance
+sql
+-- Script monitoring quotidien
+SET PAGESIZE 100
+SET LINESIZE 200
+
+COL tablespace_name FOR A15
+COL used_mb FOR 9,999,999
+COL free_mb FOR 9,999,999
+COL pct_used FOR 990.99
+
+SELECT 
+    tablespace_name,
+    ROUND(SUM(bytes_used)/1024/1024, 2) as used_mb,
+    ROUND(SUM(bytes_free)/1024/1024, 2) as free_mb,
+    ROUND(SUM(bytes_used)*100/SUM(bytes_used+bytes_free), 2) as pct_used
+FROM v$temp_extent_pool
+GROUP BY tablespace_name
+ORDER BY pct_used DESC;
+
+-- Nettoyage sessions orphelines
+SELECT 
+    'ALTER SYSTEM KILL SESSION ''' || sid || ',' || serial# || ''' IMMEDIATE;' as kill_cmd
+FROM v$session s
+WHERE NOT EXISTS (
+    SELECT 1 FROM v$process p 
+    WHERE p.addr = s.paddr
+)
+AND s.username IS NOT NULL;
+8.2 Alertes et monitoring proactif
+sql
+-- Configuration alerte espace TEMP
+BEGIN
+    DBMS_SERVER_ALERT.SET_THRESHOLD(
+        metrics_id => DBMS_SERVER_ALERT.TABLESPACE_PCT_FULL,
+        warning_operator => DBMS_SERVER_ALERT.OPERATOR_GE,
+        warning_value => '80',
+        critical_operator => DBMS_SERVER_ALERT.OPERATOR_GE,
+        critical_value => '95',
+        observation_period => 1,
+        consecutive_occurrences => 1,
+        instance_name => NULL,
+        object_type => DBMS_SERVER_ALERT.OBJECT_TYPE_TABLESPACE,
+        object_name => 'TEMP'
+    );
+END;
+/
+9. SCÉNARIOS D'URGENCE
+9.1 TEMP tablespace plein - Actions immédiates
+sql
+-- 1. Identifier les sessions problématiques
+SELECT 
+    s.sid,
+    s.serial#,
+    s.username,
+    s.program,
+    ROUND(u.blocks * t.block_size/1024/1024, 2) as mb_used,
+    s.sql_id
+FROM v$tempseg_usage u
+JOIN v$session s ON u.session_addr = s.saddr
+JOIN dba_tablespaces t ON u.tablespace = t.tablespace_name
+ORDER BY u.blocks DESC
+FETCH FIRST 5 ROWS ONLY;
+
+-- 2. Ajouter urgence TEMP
+ALTER TABLESPACE temp 
+ADD TEMPFILE '/u01/oradata/temp_emergency.dbf' 
+SIZE 10G REUSE AUTOEXTEND OFF;
+
+-- 3. Tuer sessions consommatrices (si nécessaire)
+ALTER SYSTEM KILL SESSION 'sid,serial#' IMMEDIATE;
+9.2 TEMP tablespace corrompu
+sql
+-- 1. Créer nouveau TEMP tablespace
+CREATE TEMPORARY TABLESPACE temp_new
+TEMPFILE '/u01/oradata/temp_new01.dbf' SIZE 4G;
+
+-- 2. Changer TEMP par défaut
+ALTER DATABASE DEFAULT TEMPORARY TABLESPACE temp_new;
+
+-- 3. Redémarrer instances (pour RAC)
+-- 4. Supprimer ancien TEMP
+DROP TABLESPACE temp INCLUDING CONTENTS AND DATAFILES;
+10. BEST PRACTICES
+10.1 Configuration recommandée
+sql
+-- 1. Création TEMP optimisé
+CREATE TEMPORARY TABLESPACE temp
+TEMPFILE '+DATA' SIZE 4G
+EXTENT MANAGEMENT LOCAL UNIFORM SIZE 1M
+TABLESPACE GROUP '';
+
+-- 2. PGA configuration
+ALTER SYSTEM SET pga_aggregate_target = 4G SCOPE=SPFILE;
+ALTER SYSTEM SET workarea_size_policy = AUTO SCOPE=SPFILE;
+
+-- 3. Multiple tempfiles sur différents disques
+ALTER TABLESPACE temp
+ADD TEMPFILE '+DATA' SIZE 4G,
+ADD TEMPFILE '+DATA' SIZE 4G;
+10.2 Règles de dimensionnement
+OLTP standard : 2-5% de la taille DB
+
+Data Warehouse : 10-20% de la taille DB
+
+Applications analytiques : 20-30% de la taille DB
+
+Minimum : Suffisant pour la plus grosse opération + 50%
+
+Tempfiles multiples : Répartir sur plusieurs disques pour le parallélisme
+
+10.3 Monitoring continu
+Surveiller v$temp_space_header quotidiennement
+
+Alerter si utilisation > 80%
+
+Journaliser les erreurs ORA-1652
+
+Réviser dimensionnement trimestriellement
+
+Purger sessions orphelines régulièrement
+
+11. CHECKLIST ADMINISTRATION
+Configuration initiale :
+TEMP créé avec UNIFORM SIZE 1M
+
+Tempfiles sur disques rapides (SSD)
+
+PGA_AGGREGATE_TARGET correctement dimensionné
+
+WORKAREA_SIZE_POLICY = AUTO
+
+Plusieurs tempfiles pour le parallélisme
+
+Monitoring quotidien :
+Vérifier v$temp_space_header
+
+Surveiller sessions TEMP gourmandes
+
+Vérifier taux de tri en mémoire (>95%)
+
+Contrôler espace libre (>20%)
+
+Maintenance mensuelle :
+Réviser dimensionnement TEMP
+
+Vérifier fragmentation
+
+Nettoyer sessions orphelines
+
+Analyser tendances d'utilisation
+
+En cas d'urgence :
+Script ajout TEMP emergency
+
+Liste sessions à killer
+
+Procédure reconstruction TEMP
+
+Contacts support

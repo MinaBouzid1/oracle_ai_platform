@@ -1,0 +1,970 @@
+## 1ère partie : Architecture et administration d’Oracle7
+
+### 1. Architecture fonctionnelle
+
+L’architecture fonctionnelle d’Oracle repose sur un modèle en couches :
+
+**Principe général :**
+- Applications → Outils (développement, communication, génie logiciel, administration, aide à la décision)
+- Outils utilisent directement SQL ou PL/SQL (langage procédural)
+- PL/SQL transforme ses instructions en SQL
+- Ordres SQL sollicitent le moteur (noyau) d'Oracle
+- Noyau accède au dictionnaire des données
+
+**Description des composants :**
+
+**1.1 Noyau Oracle :**
+- Communication avec la base de données
+- Connexion à d'autres noyaux (bases réparties)
+- Intégrité et cohérence
+- Confidentialité
+- Sauvegarde et restauration
+- Gestion des accès concurrents
+- Optimisation de l'exécution des requêtes (analyse, optimisation, exécution)
+- Gestion des accélérateurs (index, clusters, hash clusters)
+- Stockage physique des données
+
+**1.2 Dictionnaire des données :**
+Métabase (stockée sous forme de schéma relationnel) décrivant dynamiquement la base de données.
+
+**Objets de la base :**
+- Schéma : ensemble de structures logiques de données
+- Cluster (groupement) : contient une ou plusieurs tables ayant des colonnes communes
+- Lien de base de données (database link) : accès à une base distante
+- Index : structure contenant l'adresse physique de chaque ligne
+- Paquetage (package) : collection de fonctions, procédures et autres objets stockés
+- Procédure : programme PL/SQL stocké ne retournant pas de valeur
+- Séquence : génère des entiers uniques
+- Cliché (snapshot) : table contenant le résultat d'une requête définie sur une base distante
+- Journal de cliché (log snapshot) : table associée à la table maîtresse
+- Table : structure de données contenant les données (lignes et colonnes)
+- Vue : représentation logique combinant une ou plusieurs tables/vues
+- Déclencheur (trigger) : procédure stockée associée à un événement
+- Fonction : programme PL/SQL stocké retournant une valeur
+- Synonymes : re-dénomination d'objets
+- Segment d'annulation : sauvegarde des données pour valider/défaire les transactions
+- Espace de tables (tablespace) : allocation d'espace disque
+- Clé primaire : colonnes identifiant de manière unique chaque ligne
+- Clé unique : similaire à la clé primaire mais autorisant la valeur indéterminée
+- Clé étrangère : colonnes dépendant d'une clé primaire
+- Intégrité référentielle : consistance des relations des clés étrangères
+
+**Utilisateurs et privilèges :**
+- Profil : ensemble de limitations de ressources
+- Rôle : ensemble de privilèges attribuables
+- Privilège d'accès : droit accordé sur la base de données
+- Utilisateur : compte administré par Oracle
+
+**Informations d'activité :**
+- Connexions
+- Ressources utilisées
+- Verrouillages
+
+**Organisation du dictionnaire :**
+- Tables et vues accessibles en SQL
+- Lecture seule pour certains utilisateurs
+- Lecture/écriture par le noyau via l'utilisateur SYS
+- Quatre classes de vues :
+  * USER_… : objets d'un utilisateur
+  * ALL_… : objets accessibles à un utilisateur
+  * DBA_… : pour administrateurs
+  * V$… (ou V_$…) : suivi des performances
+
+**1.3 SQL :**
+Interface entre le noyau et les différents outils Oracle.
+Chaque commande subit : vérification syntaxique/sémantique, décomposition en opérations élémentaires, exécution par le noyau, transmission du résultat.
+
+**1.4 PL/SQL :**
+Extension procédurale du langage SQL.
+
+**1.5 Outils Oracle :**
+
+**Développement d'applications :**
+- SQL*Plus
+- SQL*Forms
+- SQL*ReportWriter
+- SQL*Menu
+- Pro* (Pro*C, Pro*COBOL, etc.)
+- SQL*Webserver
+
+**Communication :**
+- SQL*Star
+- SQL*Net
+- SQL*Connect
+
+**Génie logiciel :**
+- CASE*Dictionary
+- CASE*Designer
+- CASE*Generator
+
+**Administration :**
+- SQL*DBA : administration complète (mode menu ou ligne)
+- Import/Export : échange de données entre bases Oracle, défragmentation
+- SQL*Loader : importation de fichiers dans une base Oracle
+
+**Aide à la décision :**
+- ORA 1-2-3
+- SQL*QMX
+- Easy*SQL
+- SQL*Calc
+- Oracle*Mail
+
+### 2. Architecture interne
+
+Composée de fichiers, processus et mémoire. Une instance Oracle (SID - System Identifier) correspond à :
+- Ensemble de fichiers
+- Zone mémoire allouée
+- Exécutables assurant le fonctionnement d'une base de données
+
+**2.1 Les fichiers :**
+Oracle respecte la norme ANSI/X3/SPARC (niveaux externe, conceptuel, interne).
+
+**2.1.1 Structure physique :**
+- Fichier d'initialisation initSID.ora : paramètres d'initialisation
+- Fichiers du réseau : listener.ora (serveur), Tnsnames.ora (client)
+- Fichiers de données (data files) : contiennent dictionnaire et objets utilisateurs
+- Fichiers de reprise (log files) : mises à jour récentes, permettent la restauration
+- Fichiers de contrôle (control files) : informations sur la structure physique
+
+**2.1.2 Structure logique (hiérarchie) :**
+- Base de données : objets de schéma répartis dans les espaces de tables
+- Objets de schéma : tables, vues, clusters, index, séquences, procédures stockées, fonctions, paquetages, déclencheurs
+- Espace de tables : regroupement d'objets logiques (au moins SYSTEM pour le dictionnaire)
+- Fichier : ensemble de segments
+- Segment : ensemble d'extensions (données, index, annulation, temporaire, amorçage)
+- Extension : suite de blocs contigus (initiale, suivante, avec pourcentage d'accroissement)
+- Bloc logique : plus petite unité logique d'E/S (multiple du bloc physique système)
+
+**Paramètres de bloc :**
+- PCTFREE (10% par défaut) : pourcentage d'espace devant rester libre pour modifications
+- PCTUSED (40% par défaut) : pourcentage autorisant l'insertion dans le bloc
+
+**Format d'un bloc :**
+- Entête (adresse, type de segment)
+- Liste des tables (informations sur tables clustérisées)
+- Liste des lignes (adresse de chaque ligne)
+- Espace libre
+- Données
+
+**Format d'une ligne :**
+- Entête de ligne (overhead, nombre de colonnes, identifiant de clé de cluster, adresse en cas de chaînage)
+- Colonnes (longueur et valeur)
+
+**2.2 La mémoire :**
+
+**Zones réservées au code :**
+- Noyau Oracle
+- Outils Oracle et programmes d'application
+
+**Zone Globale Système (SGA) :**
+- Cache base de données (buffer cache) : copies des blocs de données (tables, index, segments d'annulation, clusters)
+- Zone de reprise (Log buffer) : mises à jour des données
+- Pool partagé (Shared buffer pool) :
+  * Cache de la bibliothèque (SQL partagée)
+  * Cache du dictionnaire des données
+  * Données des sessions (version multi-threads)
+- Zone privée SQL et PL/SQL
+
+**Zone Globale Programme (PGA) :**
+Informations de contrôle relatives à un processus.
+
+**2.3 Les processus :**
+
+**Types de processus :**
+- Processus utilisateur (client) : tâches soumises par SQL*DBA, SQL*Plus, SQL*Forms, Pro*C, etc.
+- Processus SGBD :
+  * Processus serveur : associé à un ensemble de processus utilisateurs
+  * Processus d'arrière-plan (background process) :
+    * smon (system monitor) : recouvrement d'instance
+    * dbwr (database writer) : gestion du cache base de données
+    * lgwr (log writer) : gestion de la zone de reprise
+    * pmon (process monitor) : recouvrement des processus utilisateurs
+    * reco (recover) : recouvrement des transactions réparties
+    * arch (archiver) : copie des fichiers de reprise pleins
+    * ckpt (checkpoint) : écriture des données modifiées
+    * oralsn (listener) : aiguillage des connexions
+    * Dnnn (dispatcher) : partage des processus serveurs
+    * lck0, …, lck9 (lock) : gestion des verrouillages inter-instances
+
+**Gestion multi-processus :**
+- Architecture combinée : un processus utilisateur par utilisateur
+- Architecture à serveur dédié : un processus utilisateur + un processus serveur par utilisateur
+- Architecture à serveur partagé : un processus serveur pour plusieurs processus utilisateurs
+
+### 3. Création et démarrage de la base de données
+
+**3.1 Création de la base de données :**
+
+**Prérequis :**
+- Être administrateur avec privilèges élevés
+- Évaluer et disposer de l'espace disque nécessaire
+- Prévoir la gestion de sécurité
+
+**Étapes :**
+1. Sauvegarde des bases existantes
+2. Création/modification du fichier d'initialisation
+3. Arrêt et redémarrage d'Oracle
+4. Commande CREATE DATABASE
+
+**3.2 Modification des caractéristiques :**
+- ALTER DATABASE pour ajouter/supprimer fichiers
+- Redénomination de fichiers
+
+**3.3 Démarrage et fermeture :**
+
+**Démarrage :**
+1. CONNECT INTERNAL
+2. STARTUP NOMOUNT (démarrage instance)
+3. ALTER DATABASE MOUNT (chargement base)
+4. ALTER DATABASE OPEN (ouverture base)
+Ou STARTUP OPEN pour les trois étapes en une commande.
+
+**Fermeture :**
+1. CONNECT INTERNAL
+2. SHUTDOWN [NORMAL|IMMEDIATE|ABORT]
+
+### 4. Transactions et accès concurrents
+
+**Transactions :**
+- Début : début de session
+- Fin : fin de session, COMMIT (validation) ou ROLLBACK (annulation)
+- Points de repère : SAVEPOINT
+
+**Accès concurrents :**
+- Concepts : intégrité, concurrence, consistance
+- Technique : verrouillage des données
+
+**Granules de verrouillage :**
+- Logique : table, ligne
+- Physique : segment, fichier, page
+
+**Types de verrouillage :**
+- Implicite : géré par Oracle
+- Explicite : contrôlé par l'utilisateur
+
+**Modes de verrouillage explicite :**
+1. Aucun verrouillage (mode 1)
+2. Lignes partagées RS (mode 2)
+3. Lignes exclusives RX (mode 3)
+4. Table partagée S (mode 4)
+5. Partage exclusif de lignes SRX (mode 5)
+6. Table exclusive X (mode 6)
+
+**Fin de transaction :** lève les verrous posés.
+
+### 5. Sécurité des données
+
+**Contrôles :**
+- Authenticité des utilisateurs
+- Espaces de tables accessibles par défaut
+- Limitations des ressources
+- Privilèges d'accès
+
+**Commandes :**
+- Profil : CREATE/ALTER/DROP PROFILE
+- Rôle : CREATE/ALTER/DROP ROLE, SET ROLE
+- Privilèges :
+  * Système : GRANT/REVOKE (accès base et définition objets)
+  * Objet : GRANT/REVOKE ON (manipulation objets)
+- Utilisateur : CREATE/ALTER/DROP USER
+
+**Comptes système :**
+- SYS (change_on_install) : accès complet au dictionnaire
+- SYSTEM (manager) : privilèges élevés
+- SCOTT (tiger) : compte exemple (si installé)
+
+### 6. Sauvegarde et restauration de données
+
+**6.1 Types de pannes :**
+- Erreur accidentelle (suppression d'objet)
+- Panne sur commande SQL (manque ressources)
+- Panne processus
+- Panne réseau
+- Panne d'instance (matérielle/logicielle)
+- Panne disque
+
+**6.2 Mécanismes :**
+
+**Journal (fichiers de reprise) :**
+- Trace des enregistrements mis à jour
+- Gérés circulairement
+- Archivage possible
+- Duplication possible (mirroring)
+
+**Segments d'annulation :** stockent anciennes valeurs pour annulation.
+
+**Fichiers de contrôle :** statuts des structures physiques.
+
+**Restauration :**
+1. Récupération dernière sauvegarde
+2. Roll-forward : application des mises à jour du journal
+3. Rollback : annulation des transactions non validées
+
+**6.3 Sauvegardes :**
+
+**Stratégies :**
+- ARCHIVELOG : pas de perte de données, haute disponibilité
+- NOARCHIVELOG : perte possible, disponibilité réduite
+
+**Types :**
+- Complète : tous les fichiers (base fermée)
+- Partielle : espace de tables ou fichier (base ouverte/fermée)
+
+### 7. Optimisation
+
+**Objectifs :** adapter Oracle aux besoins spécifiques (temps réponse vs débit).
+
+**Ordre d'optimisation :**
+1. Requêtes
+2. Mémoire
+3. Entrées/sorties
+4. Contentions processus
+
+**7.1 Optimisation de requête :**
+
+**Phases d'exécution :**
+1. Analyse (parse) : vérifications syntaxiques/sémantiques, droits, planification
+2. Exécution (exec) : traitement de la commande
+3. Recherche (fetch) : récupération des résultats
+
+**Plan d'exécution :** EXPLAIN PLAN
+
+**Accès aux données :**
+- Par ROWID (adresse physique)
+- Parcours cluster indexé
+- Parcours cluster par hachage
+- Parcours d'index
+- Parcours complet de table (full table scan)
+
+**Méthodes d'optimisation :**
+- Statique : basée sur classification des méthodes d'accès
+- Statistique : basée sur statistiques des objets
+
+**Buts d'optimisation :**
+- Meilleur temps de réponse (FIRST_ROWS)
+- Meilleur débit du résultat (ALL_ROWS)
+
+**Paramétrage :**
+- OPTIMIZER_GOAL (session)
+- OPTIMIZER_MODE (initialisation)
+
+**Forçage par programmation :** hints (/*+ ... */)
+
+**7.2 Optimisation mémoire :**
+- Cache base de données (DB_BLOCK_BUFFERS)
+- Zone de reprise (LOG_BUFFER)
+- Pool partagé (SHARED_POOL_SIZE)
+- Zone privée (OPEN_CURSORS)
+
+**Problèmes courants :**
+- Appels superflus à l'analyseur
+- Défauts mémoire caches
+- Utilisation segments temporaires pour tris
+
+**7.3 Optimisation E/S :**
+- Contentions disques
+- Allocation espace dans blocs (chaînage, migration)
+- Défragmentation
+- Allocations dynamiques d'espace
+
+**7.4 Réduction contentions processus :**
+- Segments d'annulation
+- Processus dispatcher
+- Processus partagés
+
+### 8. Outils
+
+**8.1 Trace d'exécution :**
+- SQL_TRACE : trace dans fichier
+- TKPROF : exploitation des traces
+- EXPLAIN : plan d'exécution
+
+**8.2 Génération statistiques :**
+- ANALYZE : statistiques pour optimiseur
+
+**8.3 Outils développement :**
+- Tableaux (ARRAYSIZE)
+- PL/SQL
+- Paquetages (transactions, alerteurs, pipes, sorties)
+
+**8.4 Outils administration :**
+- SQL*DBA : administration complète
+- Import/Export : échange données, défragmentation
+- SQL*Loader : chargement fichiers externes
+
+**8.5 Environnement réseau :**
+- Architecture centralisée
+- Architecture distribuée (client/serveur)
+- Architecture répartie (multi-bases)
+
+**Solutions Oracle :**
+- SQL*Net : connexion client/serveur
+- SQL*Star : bases réparties (SQL*Net + noyau réparti)
+
+## 2ème partie : Concepts avancés et bonnes pratiques Oracle7
+
+### 9. Gestion du stockage et organisation des données
+
+**9.1 Stratégies de stockage :**
+
+**Tablespaces et leurs rôles :**
+- SYSTEM : dictionnaire de données, objets système
+- TEMP : opérations de tri temporaires
+- ROLLBACK : segments d'annulation
+- DATA : tables utilisateurs
+- INDEX : indexes des tables
+- TOOLS : outils d'administration
+
+**Gestion des extensions :**
+- INITIAL : taille initiale du segment
+- NEXT : taille des extensions suivantes
+- PCTINCREASE : pourcentage d'augmentation entre extensions
+- MINEXTENTS : nombre minimal d'extensions
+- MAXEXTENTS : nombre maximal d'extensions
+
+**9.2 Partitionnement et clustering :**
+
+**Clusters :**
+- Cluster indexé : tables avec colonnes communes physiquement regroupées
+- Cluster hash : accès direct par fonction de hachage
+- Avantages : réduction des I/O, amélioration des jointures
+
+**Partitionnement de tables :**
+- Partitionnement par plage (range)
+- Partitionnement par liste (list)
+- Partitionnement par hachage (hash)
+- Partitionnement composite
+
+**9.3 Gestion des index :**
+
+**Types d'index :**
+- Index B-tree standard
+- Index bitmap (pour colonnes à faible cardinalité)
+- Index inversé (reverse key)
+- Index fonctionnel
+- Index de cluster
+- Index de domaine
+
+**Maintenance des index :**
+- Rebuild d'index pour réduire la fragmentation
+- Coalescence des feuilles d'index
+- Surveillance de la hauteur B-tree
+
+### 10. Performance tuning avancé
+
+**10.1 Paramètres d'initialisation critiques :**
+
+**Paramètres mémoire :**
+- DB_BLOCK_SIZE : taille des blocs de données (2K, 4K, 8K, 16K)
+- DB_BLOCK_BUFFERS : nombre de buffers en mémoire
+- SHARED_POOL_SIZE : taille du pool partagé
+- SORT_AREA_SIZE : mémoire allouée pour les tris
+- HASH_AREA_SIZE : mémoire pour les jointures hash
+
+**Paramètres processus :**
+- PROCESSES : nombre maximum de processus
+- SESSIONS : nombre maximum de sessions
+- TRANSACTIONS : nombre maximum de transactions
+
+**10.2 Surveillance en temps réel :**
+
+**Vues de performance dynamiques :**
+- V$SYSSTAT : statistiques système
+- V$SESSTAT : statistiques par session
+- V$SQLAREA : requêtes SQL en cache
+- V$SESSION_WAIT : événements d'attente
+- V$LOCK : verrous actifs
+- V$LATCH : verrous internes (latches)
+
+**10.3 Analyse des points de contention :**
+
+**Types d'attente courants :**
+- Buffer busy waits : contention sur les buffers
+- Enqueue waits : attente de verrous
+- Free buffer waits : attente de buffers libres
+- Log file sync : attente écriture redo log
+- Db file scattered read : lectures multiblocs
+- Db file sequential read : lectures séquentielles
+
+### 11. Administration avancée
+
+**11.1 Gestion des utilisateurs et des rôles :**
+
+**Stratégies de sécurité :**
+- Authentification externe (OS authentication)
+- Authentification par mot de passe
+- Authentification globale (enterprise users)
+
+**Rôles prédéfinis :**
+- CONNECT : privilèges de connexion de base
+- RESOURCE : création d'objets
+- DBA : tous les privilèges système
+- EXP_FULL_DATABASE : exportation complète
+- IMP_FULL_DATABASE : importation complète
+
+**11.2 Gestion des ressources :**
+
+**Resource Manager :**
+- Groupes de consommateurs (consumer groups)
+- Plans de ressources (resource plans)
+- Directives de ressources (resource directives)
+- Limitation : CPU, degré de parallélisme, temps d'exécution
+
+**Profils de ressources :**
+- SESSIONS_PER_USER : sessions simultanées
+- CPU_PER_SESSION : temps CPU par session
+- CPU_PER_CALL : temps CPU par appel
+- CONNECT_TIME : durée de connexion
+- IDLE_TIME : temps d'inactivité
+- LOGICAL_READS_PER_SESSION : lectures logiques
+
+**11.3 Gestion du stockage proactive :**
+
+**Alertes et seuils :**
+- Tablespace usage alerts
+- Undo space alerts
+- Temp space alerts
+- Archive log destination alerts
+
+**Automatisation des tâches :**
+- DBMS_JOB : gestion des jobs
+- DBMS_SCHEDULER : planificateur avancé
+- Scripts de maintenance automatisée
+
+### 12. Haute disponibilité et récupération
+
+**12.1 Stratégies de backup avancées :**
+
+**RMAN (Recovery Manager) :**
+- Backup incrementaux
+- Backup cumulatifs
+- Compression des backups
+- Catalogues de recovery
+- Backup de fichiers de contrôle
+
+**Backup en ligne :**
+- Tablespaces en mode backup
+- Backup des archives logs
+- Validation des backups
+
+**12.2 Options de récupération :**
+
+**Récupération jusqu'à un point dans le temps :**
+- Point-in-time recovery (PITR)
+- Recovery based on SCN (System Change Number)
+- Recovery based on time
+
+**Récupération de tablespaces :**
+- Tablespace point-in-time recovery (TSPITR)
+- Transport de tablespaces
+
+**12.3 Solutions de haute disponibilité :**
+
+**Standby Database :**
+- Base de données en attente physique
+- Base de données en attente logique
+- Switchover et failover
+
+**Oracle Fail Safe :**
+- Clustering Windows
+- Basculement automatique
+
+**Real Application Clusters (RAC) :**
+- Partage de données entre instances
+- Load balancing
+- Failover transparent
+
+### 13. Développement et programmation
+
+**13.1 PL/SQL avancé :**
+
+**Optimisation PL/SQL :**
+- Bulk operations (BULK COLLECT, FORALL)
+- Collections et tables indexées
+- Réf cursors (REF CURSOR)
+- Packages et modularité
+
+**Gestion des erreurs :**
+- Exceptions prédéfinies
+- Exceptions utilisateur
+- Pragmas EXCEPTION_INIT
+- Logging et tracing
+
+**13.2 Déclencheurs (Triggers) :**
+
+**Types de triggers :**
+- DML triggers (BEFORE/AFTER, ROW/STATEMENT)
+- INSTEAD OF triggers (pour les vues)
+- System triggers (logon/logoff, startup/shutdown)
+- Database event triggers
+
+**Bonnes pratiques :**
+- Éviter les triggers récursifs
+- Minimiser la logique dans les triggers
+- Gérer les exceptions dans les triggers
+
+**13.3 Programmation stockée :**
+
+**Objets stockés :**
+- Procédures stockées
+- Fonctions stockées
+- Packages (spécification et corps)
+- Types d'objets
+
+**Avantages :**
+- Réduction du trafic réseau
+- Partage de code
+- Abstraction des données
+- Sécurité améliorée
+
+### 14. Monitoring et diagnostic
+
+**14.1 Outils de monitoring :**
+
+**UTLSTAT/UTLESTAT :**
+- Collecte de statistiques
+- Rapports de performance
+- Analyse comparative
+
+**Statspack :**
+- Installation et configuration
+- Collectes automatiques
+- Rapports détaillés
+- Analyse des tendances
+
+**14.2 Alertes et notifications :**
+
+**Alertes proactives :**
+- Alertes de seuil
+- Alertes d'événements
+- Notifications par email
+- Paging et alertes SMS
+
+**14.3 Réglage des performances :**
+
+**Méthodologie AWR :**
+- Collecte automatique
+- Rapports ADDM (Automatic Database Diagnostic Monitor)
+- Recommandations automatiques
+
+**SQL Tuning Advisor :**
+- Analyse des requêtes problématiques
+- Recommandations d'index
+- Restructuration SQL
+
+### 15. Migration et upgrade
+
+**15.1 Stratégies de migration :**
+
+**Upgrade de version :**
+- Planification de l'upgrade
+- Tests de compatibilité
+- Rollback plan
+- Migration des données
+
+**Migration de plateforme :**
+- Transportable tablespaces
+- Export/Import
+- Replication
+
+**15.2 Outils de migration :**
+
+**Migration Workbench :**
+- Migration depuis d'autres SGBD
+- Conversion de schémas
+- Migration des données
+- Migration du code
+
+**Data Pump :**
+- EXPDP/IMPDP
+- Parallélisation
+- Compression
+- Chiffrement
+
+### 16. Sécurité avancée
+
+**16.1 Chiffrement des données :**
+
+**Transparent Data Encryption (TDE) :**
+- Chiffrement des tablespaces
+- Chiffrement des colonnes
+- Gestion des clés
+
+**Network Encryption :**
+- SQL*Net encryption
+- SSL/TLS
+- Authentification mutuelle
+
+**16.2 Auditing :**
+
+**Types d'audit :**
+- Audit des privilèges
+- Audit des objets
+- Audit des actions
+- Audit fine-grained
+
+**Outils d'audit :**
+- Vues d'audit (AUD$)
+- Rapports d'audit
+- Alertes d'audit
+
+**16.3 Contrôles d'accès :**
+
+**Virtual Private Database (VPD) :**
+- Politiques de sécurité
+- Prédicats dynamiques
+- Masquage des données
+
+**Label Security :**
+- Sécurité basée sur les labels
+- Contrôle d'accès mandataire
+- Multi-level security
+
+### 17. Bases de données distribuées
+
+**17.1 Architecture distribuée :**
+
+**Database Links :**
+- Liens publics
+- Liens privés
+- Liens partagés
+- Liens globaux
+
+**Réplication :**
+- Réplication matérielle
+- Réplication logique
+- Réplication multi-maîtres
+
+**17.2 Transactions distribuées :**
+
+**Two-Phase Commit (2PC) :**
+- Phase de préparation
+- Phase de validation
+- Récupération des transactions
+
+**Gestion des conflits :**
+- Détection des conflits
+- Résolution des conflits
+- Logs de résolution
+
+### 18. Gestion du changement
+
+**18.1 Versionnement :**
+
+**Gestion des schémas :**
+- Scripts de déploiement
+- Versionnement des objets
+- Rollback des changements
+
+**18.2 Tests de performance :**
+
+**Benchmarking :**
+- Tests de charge
+- Tests de stress
+- Tests d'endurance
+- Tests de basculement
+
+**18.3 Documentation :**
+
+**Documentation du système :**
+- Inventaire des bases
+- Documentation des schémas
+- Procédures opérationnelles
+- Plans de reprise
+
+### 19. Intégration avec l'IA
+
+**19.1 Oracle Intelligent Advisor :**
+- Règles métier
+- Déductions automatiques
+- Optimisation des décisions
+
+**19.2 Machine Learning :**
+- Prédictions dans SQL
+- Modèles intégrés
+- Analyse prédictive
+
+**19.3 Automatisation des tâches :**
+- Self-tuning database
+- Automatic memory management
+- Automatic storage management
+- Automatic workload repository
+
+### 20. Bonnes pratiques d'administration
+
+**20.1 Checklist quotidienne :**
+- Vérification des alertes
+- Surveillance de l'espace
+- Vérification des backups
+- Revue des performances
+
+**20.2 Checklist hebdomadaire :**
+- Analyse des statistiques
+- Vérification des fragments
+- Revue des logs
+- Mise à jour des statistiques
+
+**20.3 Checklist mensuelle :**
+- Revue de sécurité
+- Analyse des tendances
+- Planification de la capacité
+- Tests de récupération
+
+**20.4 Documentation essentielle :**
+- Procédures de démarrage/arrêt
+- Contacts d'urgence
+- Inventaire des serveurs
+- Diagrammes d'architecture
+
+### 21. Références et ressources
+
+**21.1 Vues système importantes :**
+- DBA_TABLES, DBA_INDEXES, DBA_SEGMENTS
+- DBA_DATA_FILES, DBA_FREE_SPACE
+- DBA_USERS, DBA_ROLES, DBA_PROFILES
+- DBA_SYS_PRIVS, DBA_TAB_PRIVS
+- DBA_OBJECTS, DBA_SOURCE
+
+**21.2 Scripts utiles :**
+- Monitoring d'espace
+- Monitoring de sessions
+- Monitoring de performances
+- Rapports d'activité
+
+**21.3 Outils externes :**
+- TOAD, SQL Developer
+- Enterprise Manager
+- Third-party monitoring tools
+- Backup solutions
+
+### 22. Glossaire des termes Oracle
+
+**A-C :**
+- Archive Log : fichiers de reprise archivés
+- ASM : Automatic Storage Management
+- AWR : Automatic Workload Repository
+- Buffer Cache : cache mémoire pour les données
+- Checkpoint : synchronisation mémoire/disque
+- Cluster : groupe de serveurs ou tables
+
+**D-F :**
+- Datafile : fichier physique contenant des données
+- DBA : Database Administrator
+- DDL : Data Definition Language
+- DML : Data Manipulation Language
+- Extent : unité d'allocation d'espace
+- Flashback : fonction de récupération rapide
+
+**G-I :**
+- Instance : ensemble de processus et mémoire
+- Latch : verrou interne Oracle
+- LGWR : Log Writer process
+- LOB : Large Object
+- Logfile : fichier de reprise
+
+**M-O :**
+- Materialized View : vue matérialisée
+- PGA : Program Global Area
+- PL/SQL : Programming Language/SQL
+- RAC : Real Application Clusters
+- RBO : Rule-Based Optimizer
+- Redo Log : journal des modifications
+
+**P-R :**
+- Rollback : annulation de transaction
+- Rowid : identifiant physique d'une ligne
+- Segment : ensemble d'extents
+- SGA : System Global Area
+- SID : System Identifier
+- SQL : Structured Query Language
+
+**S-U :**
+- Tablespace : espace logique de stockage
+- TNS : Transparent Network Substrate
+- Trigger : déclencheur
+- Undo : données d'annulation
+- User : utilisateur de la base
+
+**V-Z :**
+- View : vue logique
+- Wait Event : événement d'attente
+
+### 23. Annexes techniques
+
+**23.1 Codes d'erreur courants :**
+- ORA-00001 : violation de contrainte unique
+- ORA-00942 : table ou vue n'existe pas
+- ORA-01555 : snapshot too old
+- ORA-04031 : mémoire insuffisante dans le shared pool
+- ORA-12514 : TNS:listener ne connaît pas le service
+
+**23.2 Commandes SQL essentielles :**
+
+**Administration :**
+- CREATE/ALTER/DROP DATABASE
+- CREATE/ALTER/DROP TABLESPACE
+- CREATE/ALTER/DROP USER
+- GRANT/REVOKE
+
+**Maintenance :**
+- ANALYZE TABLE/INDEX
+- ALTER SYSTEM/SESSION
+- EXPLAIN PLAN
+- SET AUTOTRACE
+
+**Monitoring :**
+- SELECT * FROM V$...
+- SHOW PARAMETER
+- SHOW SGA
+- ARCHIVE LOG LIST
+
+**23.3 Fichiers de configuration :**
+- init.ora : paramètres d'instance
+- listener.ora : configuration du listener
+- tnsnames.ora : résolution des noms de service
+- sqlnet.ora : paramètres réseau
+
+**23.4 Variables d'environnement :**
+- ORACLE_HOME : répertoire d'installation
+- ORACLE_SID : identifiant de l'instance
+- PATH : chemin des exécutables
+- LD_LIBRARY_PATH : bibliothèques partagées
+
+### 24. Procédures d'urgence
+
+**24.1 Récupération d'urgence :**
+- Procédures de failover
+- Restoration depuis backup
+- Reconstruction du contrôle file
+
+**24.2 Escalation :**
+- Contacts d'urgence
+- Procédures d'alerte
+- Communication avec les équipes
+
+**24.3 Post-mortem :**
+- Analyse des incidents
+- Documentation des leçons apprises
+- Mise à jour des procédures
+
+### 25. Évolution et futures directions
+
+**25.1 Tendances Oracle :**
+- Cloud migration
+- Autonomous Database
+- Machine Learning intégré
+- Microservices architecture
+
+**25.2 Compétences requises :**
+- Cloud administration
+- DevOps practices
+- Security expertise
+- Performance engineering
+
+**25.3 Certification et formation :**
+- Oracle Certified Professional (OCP)
+- Oracle Certified Expert (OCE)
+- Oracle Certified Master (OCM)
+- Training paths et ressources
+
+---

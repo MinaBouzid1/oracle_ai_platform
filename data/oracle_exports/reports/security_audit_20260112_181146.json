@@ -1,0 +1,157 @@
+{
+  "timestamp": "2026-01-12T18:11:41.788746",
+  "audits": {
+    "users": {
+      "score_securite": 60,
+      "niveau_risque": "moyen",
+      "risques": [
+        {
+          "titre": "Comptes utilisateurs non utilisés depuis longtemps",
+          "severite": "moyenne",
+          "description": "Certains comptes utilisateurs sont expirés depuis plusieurs mois sans être utilisés. Cela peut indiquer que ces comptes sont inactifs ou abandonnés.",
+          "impact": "Faible risque de compromission de la sécurité",
+          "recommandation": "Supprimer ou mettre à jour les comptes utilisateurs non utilisés",
+          "source": "users"
+        },
+        {
+          "titre": "Comptes utilisateurs avec privilèges excessifs",
+          "severite": "moyenne",
+          "description": "Certains comptes utilisateurs ont des privilèges excessifs, ce qui peut augmenter le risque de compromission de la sécurité.",
+          "impact": "Moyen risque de compromission de la sécurité",
+          "recommandation": "Réduire les privilèges des comptes utilisateurs à ce qui est nécessaire",
+          "source": "users"
+        },
+        {
+          "titre": "Comptes utilisateurs avec statut de compte LOCKED",
+          "severite": "faible",
+          "description": "Certains comptes utilisateurs ont un statut de compte LOCKED, ce qui peut indiquer que l'utilisateur a oublié son mot de passe ou que le compte est bloqué.",
+          "impact": "Faible risque de compromission de la sécurité",
+          "recommandation": "Vérifier les raisons pour lesquelles les comptes utilisateurs sont LOCKED et les mettre à jour si nécessaire",
+          "source": "users"
+        },
+        {
+          "titre": "Manque de contrôle des accès",
+          "severite": "moyenne",
+          "description": "Il n'y a pas de contrôle des accès pour les comptes utilisateurs, ce qui peut augmenter le risque de compromission de la sécurité.",
+          "impact": "Moyen risque de compromission de la sécurité",
+          "recommandation": "Mettre en place un contrôle des accès pour les comptes utilisateurs",
+          "source": "users"
+        }
+      ],
+      "points_positifs": [
+        "Utilisation de profils pour gérer les privilèges des comptes utilisateurs",
+        "Utilisation de statut de compte pour gérer les comptes utilisateurs",
+        "Utilisation de délais pour gérer les comptes utilisateurs"
+      ]
+    },
+    "privileges": {
+      "excessive_privileges": [
+        {
+          "GRANTEE": "USER_001",
+          "PRIVILEGE": "UPDATE ANY TABLE",
+          "ADMIN_OPTION": "YES"
+        },
+        {
+          "GRANTEE": "USER_004",
+          "PRIVILEGE": "SELECT ANY TABLE",
+          "ADMIN_OPTION": "YES"
+        },
+        {
+          "GRANTEE": "USER_006",
+          "PRIVILEGE": "INSERT ANY TABLE",
+          "ADMIN_OPTION": "YES"
+        }
+      ],
+      "dangereux_privileges": [
+        {
+          "GRANTEE": "USER_003",
+          "PRIVILEGE": "CREATE SESSION",
+          "ADMIN_OPTION": "YES"
+        },
+        {
+          "GRANTEE": "USER_004",
+          "PRIVILEGE": "CREATE USER",
+          "ADMIN_OPTION": "NO"
+        }
+      ],
+      "red_flags": [
+        {
+          "GRANTEE": "USER_001",
+          "PRIVILEGE": "UPDATE ANY TABLE",
+          "ADMIN_OPTION": "YES"
+        },
+        {
+          "GRANTEE": "USER_004",
+          "PRIVILEGE": "SELECT ANY TABLE",
+          "ADMIN_OPTION": "YES"
+        },
+        {
+          "GRANTEE": "USER_006",
+          "PRIVILEGE": "INSERT ANY TABLE",
+          "ADMIN_OPTION": "YES"
+        }
+      ]
+    },
+    "profiles": {
+      "password_life_time": {
+        "standard": "max 90 jours",
+        "profil": "90 jours",
+        "resultat": "Conforme"
+      },
+      "failed_login_attempts": {
+        "standard": "max 5",
+        "profil": "5",
+        "resultat": "Conforme"
+      },
+      "password_lock_time": {
+        "standard": "min 1 jour",
+        "profil": "1 jour",
+        "resultat": "Conforme"
+      },
+      "password_reuse_time": {
+        "standard": "min 365 jours",
+        "profil": "365 jours",
+        "resultat": "Conforme"
+      },
+      "password_verify_function": {
+        "standard": "obligatoire",
+        "profil": "verify_function_11g",
+        "resultat": "Conforme"
+      }
+    }
+  },
+  "score_global": 60.0,
+  "niveau_risque_global": "moyen",
+  "resume": {
+    "total_risques": 4,
+    "risques_critiques": 0,
+    "risques_hauts": 0,
+    "risques_moyens": 3,
+    "top_3_risques": [
+      {
+        "titre": "Comptes utilisateurs non utilisés depuis longtemps",
+        "severite": "moyenne",
+        "description": "Certains comptes utilisateurs sont expirés depuis plusieurs mois sans être utilisés. Cela peut indiquer que ces comptes sont inactifs ou abandonnés.",
+        "impact": "Faible risque de compromission de la sécurité",
+        "recommandation": "Supprimer ou mettre à jour les comptes utilisateurs non utilisés",
+        "source": "users"
+      },
+      {
+        "titre": "Comptes utilisateurs avec privilèges excessifs",
+        "severite": "moyenne",
+        "description": "Certains comptes utilisateurs ont des privilèges excessifs, ce qui peut augmenter le risque de compromission de la sécurité.",
+        "impact": "Moyen risque de compromission de la sécurité",
+        "recommandation": "Réduire les privilèges des comptes utilisateurs à ce qui est nécessaire",
+        "source": "users"
+      },
+      {
+        "titre": "Manque de contrôle des accès",
+        "severite": "moyenne",
+        "description": "Il n'y a pas de contrôle des accès pour les comptes utilisateurs, ce qui peut augmenter le risque de compromission de la sécurité.",
+        "impact": "Moyen risque de compromission de la sécurité",
+        "recommandation": "Mettre en place un contrôle des accès pour les comptes utilisateurs",
+        "source": "users"
+      }
+    ]
+  }
+}

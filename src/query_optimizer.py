@@ -37,7 +37,133 @@ class QueryOptimizer:
         
         # Connecteur Oracle
         self.oracle = OracleConnector()
+    
+    def load_awr_data(self, data_dir='data/oracle_exports'):
+        """
+        Charge les données AWR depuis les fichiers exportés
         
+        Args:
+            data_dir: Répertoire des données exportées
+            
+        Returns:
+            DataFrame avec les données AWR
+        """
+        try:
+            # Chercher le fichier AWR
+            awr_file = os.path.join(data_dir, 'awr_data.csv')
+            
+            if not os.path.exists(awr_file):
+                # Chercher d'autres noms possibles
+                for file in os.listdir(data_dir):
+                    if 'awr' in file.lower() and file.endswith('.csv'):
+                        awr_file = os.path.join(data_dir, file)
+                        break
+            
+            if not os.path.exists(awr_file):
+                logger.warning(f"❌ Aucun fichier AWR trouvé dans {data_dir}")
+                return pd.DataFrame()
+            
+            # Charger les données
+            awr_data = pd.read_csv(awr_file)
+            logger.info(f"✅ Données AWR chargées : {len(awr_data)} lignes")
+            
+            # Vérifier les colonnes nécessaires
+            required_columns = ['ELAPSED_TIME', 'SNAP_TIME']
+            missing_columns = [col for col in required_columns if col not in awr_data.columns]
+            
+            if missing_columns:
+                logger.warning(f"⚠️ Colonnes manquantes dans les données AWR: {missing_columns}")
+                
+                # Chercher des colonnes similaires
+                for col in missing_columns:
+                    similar_cols = [c for c in awr_data.columns if col.lower() in c.lower()]
+                    if similar_cols:
+                        logger.info(f"   Colonne similaire pour {col}: {similar_cols[0]}")
+                        awr_data[col] = awr_data[similar_cols[0]]
+            
+            return awr_data
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du chargement des données AWR: {e}")
+            return pd.DataFrame()
+    
+    def get_performance_metrics(self, data_dir='data/oracle_exports', timeframe_days=7):
+        """
+        Récupère les métriques globales de performance
+        
+        Args:
+            data_dir: Répertoire des données exportées
+            timeframe_days: Période d'analyse en jours
+            
+        Returns:
+            Dictionnaire avec les métriques de performance
+        """
+        try:
+            # Charger les données AWR
+            awr_data = self.load_awr_data(data_dir)
+            
+            if awr_data.empty:
+                return {"error": "Aucune donnée AWR disponible"}
+            
+            # Calculer les métriques
+            total_queries = len(awr_data)
+            total_execution_time = awr_data['ELAPSED_TIME'].sum() / 1000000  # Convertir en secondes
+            
+            avg_query_time = awr_data['ELAPSED_TIME'].mean() / 1000  # Convertir en ms
+            slow_queries = len(awr_data[awr_data['ELAPSED_TIME'] > 500000])  # > 0.5s
+            slow_queries_pct = (slow_queries / total_queries * 100) if total_queries > 0 else 0
+            
+            # Tendance temporelle (comparaison avec période précédente)
+            if 'SNAP_TIME' in awr_data.columns:
+                awr_data['SNAP_TIME'] = pd.to_datetime(awr_data['SNAP_TIME'])
+                recent_cutoff = pd.Timestamp.now() - pd.Timedelta(days=timeframe_days)
+                
+                recent_data = awr_data[awr_data['SNAP_TIME'] >= recent_cutoff]
+                older_data = awr_data[awr_data['SNAP_TIME'] < recent_cutoff]
+                
+                if len(recent_data) > 0 and len(older_data) > 0:
+                    recent_avg = recent_data['ELAPSED_TIME'].mean()
+                    older_avg = older_data['ELAPSED_TIME'].mean()
+                    time_trend = "↗️" if recent_avg > older_avg else "↘️" if recent_avg < older_avg else "→"
+                    avg_time_trend = "↗️" if recent_avg > older_avg else "↘️" if recent_avg < older_avg else "→"
+                else:
+                    time_trend = "→"
+                    avg_time_trend = "→"
+            else:
+                time_trend = "→"
+                avg_time_trend = "→"
+            
+            # Distribution des temps d'exécution pour le graphique
+            query_times_ms = (awr_data['ELAPSED_TIME'] / 1000).head(1000).tolist()
+            
+            # Top 10 requêtes les plus lentes
+            top_10 = awr_data.nlargest(10, 'ELAPSED_TIME')
+            top_10_list = []
+            
+            for idx, row in top_10.iterrows():
+                sql_text = row.get('SQL_TEXT', '')[:100] + "..." if len(str(row.get('SQL_TEXT', ''))) > 100 else str(row.get('SQL_TEXT', ''))
+                top_10_list.append({
+                    'sql_id': row.get('SQL_ID', f'query_{idx}'),
+                    'sql_text': sql_text,
+                    'elapsed_time_ms': float(row['ELAPSED_TIME'] / 1000)
+                })
+            
+            return {
+                'total_execution_time_seconds': round(total_execution_time, 2),
+                'total_queries': total_queries,
+                'avg_query_time_ms': round(avg_query_time, 2),
+                'slow_queries_count': slow_queries,
+                'slow_queries_percentage': round(slow_queries_pct, 2),
+                'time_trend': time_trend,
+                'avg_time_trend': avg_time_trend,
+                'query_times_distribution': query_times_ms,
+                'top_10_queries': top_10_list
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du calcul des métriques: {e}")
+            return {"error": f"Erreur lors du calcul des métriques: {str(e)}"}
+    
     def analyze_query(self, sql_query: str, sql_id: str = None) -> Dict:
         """
         Analyse complète d'une requête SQL

@@ -1,3 +1,4 @@
+
 """
 Module 9 : Dashboard & Chatbot
 Interface web complete pour la plateforme Oracle AI
@@ -553,6 +554,13 @@ if 'components' not in st.session_state:
     st.session_state.components = init_components()
     st.session_state.chat_history = []
     st.session_state.current_page = "Accueil"
+    st.session_state.performance_metrics = None
+    st.session_state.optimization_results = None
+    st.session_state.security_results = None
+    st.session_state.backup_strategy = None
+    st.session_state.recovery_playbook = None
+    st.session_state.run_security_scan = False
+    st.session_state.load_last_report = False
 
 components = st.session_state.components
 
@@ -632,10 +640,13 @@ with st.sidebar:
         </p>
     </div>
     ''', unsafe_allow_html=True)
-    
+
     if st.button("🔄 Rafraichir les donnees", use_container_width=True):
         with st.spinner("Extraction en cours..."):
-            components['extractor'].connect()
+        # Essayez d'abord de connecter l'extracteur si la méthode existe
+            if hasattr(components['extractor'], 'connect'):
+                components['extractor'].connect()
+        # Puis exécuter l'extraction
             components['extractor'].extract_all()
         st.success("Donnees mises a jour")
     
@@ -655,28 +666,44 @@ if "Accueil" in page:
     st.markdown('''
     <div class="hero-header">
         <div class="hero-title">Oracle AI Platform</div>
-        <div class="hero-subtitle">Plateforme intelligente de gestion et d\'optimisation de bases de donnees Oracle</div>
+        <div class="hero-subtitle">Plateforme intelligente de gestion et d'optimisation de bases de donnees Oracle</div>
     </div>
     ''', unsafe_allow_html=True)
+    
+    # Calculer les métriques de performance pour l'accueil
+    try:
+        optimizer = QueryOptimizer()
+        optimizer.oracle.connect()
+        perf_metrics = optimizer.get_performance_metrics(
+            data_dir='data/oracle_exports',
+            timeframe_days=7
+        )
+    except Exception as e:
+        perf_metrics = {
+            'total_execution_time_seconds': 0,
+            'slow_queries_count': 0,
+            'avg_query_time_ms': 0,
+            'total_queries': 0
+        }
     
     # Metriques principales
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown('''
+        st.markdown(f'''
         <div class="metric-card">
-            <div class="icon purple">🛡️</div>
-            <div class="metric-value">72/100</div>
-            <div class="metric-label">Score Securite</div>
-            <div class="metric-delta negative">-8 points</div>
+            <div class="icon purple">⏱️</div>
+            <div class="metric-value">{perf_metrics.get('total_execution_time_seconds', 0):.0f}s</div>
+            <div class="metric-label">Temps total exécution</div>
+            <div class="metric-delta negative">+12%</div>
         </div>
         ''', unsafe_allow_html=True)
     
     with col2:
-        st.markdown('''
+        st.markdown(f'''
         <div class="metric-card">
             <div class="icon orange">⚡</div>
-            <div class="metric-value">15</div>
+            <div class="metric-value">{perf_metrics.get('slow_queries_count', 0)}</div>
             <div class="metric-label">Requetes Lentes</div>
             <div class="metric-delta negative">+3 depuis hier</div>
         </div>
@@ -1039,19 +1066,140 @@ elif "Performance" in page:
     </div>
     ''', unsafe_allow_html=True)
     
-    if st.button("🔍 Analyser les Requetes Lentes", type="primary"):
-        with st.spinner("Analyse en cours..."):
-            optimizer = QueryOptimizer()
-            optimizer.extractor.connect()
-            results = optimizer.analyze_slow_queries(
-                data_dir='data/oracle_exports',
-                top_n=5,
-                threshold_elapsed=500000
-            )
-            st.session_state.optimization_results = results
-        st.success("Analyse terminee!")
+    # Nouveau bouton pour analyse détaillée
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("🔍 Analyser les Requêtes Lentes", type="primary", use_container_width=True):
+            with st.spinner("Analyse en cours..."):
+                optimizer = QueryOptimizer()
+                optimizer.oracle.connect()
+                results = optimizer.analyze_slow_queries_from_file(
+                    data_dir='data/oracle_exports',
+                    top_n=5,
+                    threshold_elapsed=500000
+         )
+                st.session_state.optimization_results = results
+            st.success("Analyse terminée!")
     
-    # Affichage des resultats
+    with col2:
+        if st.button("📊 Obtenir Métriques Globales", type="primary", use_container_width=True):
+            with st.spinner("Calcul des métriques..."):
+                optimizer = QueryOptimizer()
+                optimizer.oracle.connect()
+                
+                # Nouvelle méthode pour obtenir les métriques globales
+                metrics = optimizer.get_performance_metrics(
+                    data_dir='data/oracle_exports',
+                    timeframe_days=7
+                )
+                st.session_state.performance_metrics = metrics
+            st.success("Métriques calculées!")
+    
+    # Section 1 : Métriques globales
+    if 'performance_metrics' in st.session_state and st.session_state.performance_metrics:
+        metrics = st.session_state.performance_metrics
+        
+        # Vérifier s'il y a une erreur
+        if 'error' not in metrics:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('''
+            <div class="section-header">
+                <div class="section-icon">📈</div>
+                <div class="section-title">Métriques de Performance Globales</div>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+            # Afficher les 4 métriques principales
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.markdown(f'''
+                <div class="metric-card">
+                    <div class="icon purple">⏱️</div>
+                    <div class="metric-value">{metrics.get('total_execution_time_seconds', 0):.1f}s</div>
+                    <div class="metric-label">Temps total d'exécution</div>
+                    <div class="metric-delta neutral">
+                        {metrics.get('time_trend', '→')}
+                    </div>
+                </div>
+                ''', unsafe_allow_html=True)
+            
+            with col2:
+                avg_time = metrics.get('avg_query_time_ms', 0)
+                st.markdown(f'''
+                <div class="metric-card">
+                    <div class="icon orange">⚡</div>
+                    <div class="metric-value">{avg_time:.0f}ms</div>
+                    <div class="metric-label">Temps moyen par requête</div>
+                    <div class="metric-delta neutral">
+                        {metrics.get('avg_time_trend', '→')}
+                    </div>
+                </div>
+                ''', unsafe_allow_html=True)
+            
+            with col3:
+                total_queries = metrics.get('total_queries', 0)
+                st.markdown(f'''
+                <div class="metric-card">
+                    <div class="icon green">📊</div>
+                    <div class="metric-value">{total_queries:,}</div>
+                    <div class="metric-label">Nombre total de requêtes</div>
+                </div>
+                ''', unsafe_allow_html=True)
+            
+            with col4:
+                slow_queries = metrics.get('slow_queries_count', 0)
+                slow_pct = metrics.get('slow_queries_percentage', 0)
+                st.markdown(f'''
+                <div class="metric-card">
+                    <div class="icon red">🐌</div>
+                    <div class="metric-value">{slow_queries}</div>
+                    <div class="metric-label">Requêtes lentes</div>
+                    <div class="metric-delta negative">
+                        {slow_pct:.1f}%
+                    </div>
+                </div>
+                ''', unsafe_allow_html=True)
+            
+            # Graphique de distribution des temps d'exécution
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('''
+            <div class="glass-card">
+                <div class="section-header" style="border: none; padding: 0; margin-bottom: 1rem;">
+                    <div class="section-icon">📊</div>
+                    <div class="section-title">Distribution des Temps d'Exécution</div>
+                </div>
+            ''', unsafe_allow_html=True)
+            
+            if 'query_times_distribution' in metrics and metrics['query_times_distribution']:
+                # Créer un DataFrame pour le graphique
+                dist_data = pd.DataFrame({
+                    'Temps (ms)': metrics['query_times_distribution']
+                })
+                
+                fig = px.histogram(
+                    dist_data,
+                    x='Temps (ms)',
+                    nbins=20,
+                    labels={'x': 'Temps d\'exécution (ms)', 'y': 'Nombre de requêtes'},
+                    color_discrete_sequence=['#6366f1']
+                )
+                fig.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#94a3b8',
+                    xaxis=dict(showgrid=True, gridcolor='rgba(99, 102, 241, 0.1)'),
+                    yaxis=dict(showgrid=True, gridcolor='rgba(99, 102, 241, 0.1)'),
+                    margin=dict(l=40, r=40, t=20, b=40),
+                    height=300
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune donnée de distribution disponible")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Section 2 : Analyse détaillée des requêtes
     if 'optimization_results' in st.session_state and st.session_state.optimization_results:
         results = st.session_state.optimization_results
         valid_results = [r for r in results if 'error' not in r]
@@ -1059,19 +1207,24 @@ elif "Performance" in page:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(f'''
         <div class="section-header">
-            <div class="section-icon">📊</div>
-            <div class="section-title">{len(valid_results)} Requetes Analysees</div>
+            <div class="section-icon">🔍</div>
+            <div class="section-title">Analyse Détailée des Requêtes</div>
         </div>
         ''', unsafe_allow_html=True)
         
         for i, result in enumerate(valid_results, 1):
             sql_id = result.get('sql_id', 'N/A')
-            sql_text = result.get('sql_text', 'N/A')
+           # Nouveau code corrigé :
+            original_sql_text = result.get('sql_text', 'N/A')
+            if original_sql_text != 'N/A' and len(original_sql_text) > 200:
+                sql_text = original_sql_text[:200] + "..."
+            else:
+                sql_text = original_sql_text
             resume = result.get('resume', 'N/A')
             
             with st.expander(f"🔍 Requete #{i}: {sql_id}", expanded=(i==1)):
                 st.markdown("### 📝 Requete SQL")
-                st.code(sql_text, language='sql')
+                st.code(result.get('sql_text', 'N/A'), language='sql')
                 
                 st.markdown("### 💡 Analyse")
                 st.info(resume)
@@ -1111,12 +1264,12 @@ elif "Performance" in page:
                         st.markdown(f"**Priorite:** {priority}")
                         st.markdown(f"**Gain estime:** {opt.get('gain_estime', 'N/A')}")
     
-    else:
+    elif not st.session_state.get('performance_metrics') and not st.session_state.get('optimization_results'):
         st.markdown('''
         <div class="glass-card" style="text-align: center; padding: 3rem;">
             <div style="font-size: 3rem; margin-bottom: 1rem;">⚡</div>
-            <div style="color: #f8fafc; font-size: 1.1rem; margin-bottom: 0.5rem;">Pret pour l'analyse</div>
-            <div style="color: #64748b;">Cliquez sur "Analyser les Requetes Lentes" pour demarrer</div>
+            <div style="color: #f8fafc; font-size: 1.1rem; margin-bottom: 0.5rem;">Prêt pour l'analyse</div>
+            <div style="color: #64748b;">Cliquez sur un bouton ci-dessus pour démarrer l'analyse</div>
         </div>
         ''', unsafe_allow_html=True)
 
@@ -1402,3 +1555,4 @@ st.markdown('''
     </p>
 </div>
 ''', unsafe_allow_html=True)
+
