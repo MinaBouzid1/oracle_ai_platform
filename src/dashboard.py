@@ -1550,8 +1550,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown('''
 <div style="text-align: center; padding: 2rem; border-top: 1px solid rgba(99,102,241,0.2);">
     <p style="color: #64748b; font-size: 0.85rem;">
-        <span style="color: #6366f1; font-weight: 600;">Oracle AI Platform</span> | 
-        Propulse par Claude AI + RAG | Version 1.0
+        <span style="color: #6366f1; font-weight: 600;">Oracle AI Platform</span> | Version 1.0
     </p>
 </div>
 ''', unsafe_allow_html=True)

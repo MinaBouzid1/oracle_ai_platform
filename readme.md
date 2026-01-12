@@ -495,9 +495,19 @@ Interface web Streamlit :
 ## Sécurité
 ![Sécurité](images/dashboard_securite.png)
 ![Sécurité](images/dashboard_securite2.png)
+## Performance
 ![Performance](images/dashboard_performance.png)
+![Performance](images/dashboard_performance2.png)
+![Performance](images/dashboard_performance3.png)
+## Sauvegardes
 ![Sauvegardes](images/dashboard_sauvegardes.png)
+![Sauvegardes](images/dashboard_sauvegardes2.png)
+## Restauration
+![Restauration](images/dashboard_Restauration.png)
+## Chatbot
 ![Chatbot](images/dashboard_chatbot.png)
+![Chatbot](images/dashboard_chatbot2.png)
+
 **Lancement :**
 ```bash
 streamlit run src/dashboard.py
