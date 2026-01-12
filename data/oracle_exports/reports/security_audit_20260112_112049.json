@@ -1,0 +1,119 @@
+{
+  "timestamp": "2026-01-12T11:10:19.147939",
+  "audits": {
+    "users": {
+      "score_securite": 50,
+      "niveau_risque": "faible",
+      "risques": [
+        {
+          "titre": "Comptes utilisateurs non actifs ou verrouillés",
+          "severite": "faible",
+          "description": "Les comptes USER_1, USER_2, USER_3 et USER_5 sont verrouillés ou non actifs. Ces comptes peuvent être vulnérables à une attaque de reconnaissance système.",
+          "impact": "Peut permettre aux attaquants d'identifier des comptes privilégiés sans les utiliser activement.",
+          "recommandation": "Verrouiller ou supprimer ces comptes non utilisés depuis longtemps.",
+          "source": "users"
+        },
+        {
+          "titre": "Comptes avec profile 'ADMIN_PROFILE'",
+          "severite": "faible",
+          "description": "USER_0 a un profil 'ADMIN_PROFILE'. Comme ce compte est actif et qu'il possède des privilèges élevés, il peut être utilisé pour effectuer des actions potentiellement dangereuses.",
+          "impact": "Peut permettre aux attaquants de modifier les paramètres de sécurité ou d'accéder à des données sensibles.",
+          "recommandation": "Verrouiller ce compte ou le supprimer si il n'est pas nécessaire.",
+          "source": "users"
+        },
+        {
+          "titre": "Comptes avec profile 'DEFAULT'",
+          "severite": "faible",
+          "description": "USER_6 et USER_7 ont un profil 'DEFAULT'. Comme ces comptes sont actifs, ils peuvent être utilisés pour effectuer des actions potentiellement dangereuses.",
+          "impact": "Peut permettre aux attaquants de modifier les paramètres de sécurité ou d'accéder à des données sensibles.",
+          "recommandation": "Verrouiller ces comptes ou le supprimer si il n'est pas nécessaire.",
+          "source": "users"
+        }
+      ],
+      "points_positifs": [
+        "Aucun point positif détecté dans cette configuration"
+      ]
+    },
+    "privileges": {
+      "privileges": [
+        {
+          "GRANTEE": "USER_0",
+          "PRIVILEGE": "DELETE",
+          "ADMIN_OPTION": "YES"
+        },
+        {
+          "GRANTEE": "USER_1",
+          "PRIVILEGE": "UPDATE",
+          "ADMIN_OPTION": "YES"
+        },
+        {
+          "GRANTEE": "USER_3",
+          "PRIVILEGE": "UPDATE",
+          "ADMIN_OPTION": "YES"
+        },
+        {
+          "GRANTEE": "USER_4",
+          "PRIVILEGE": "CREATE TABLE",
+          "ADMIN_OPTION": "YES"
+        }
+      ]
+    },
+    "profiles": {
+      "profile_data": {
+        "FAILED_LOGIN_ATTEMPTS": 5,
+        "PASSWORD_LIFE_TIME": 90,
+        "PASSWORD_LOCK_TIME": 1,
+        "PASSWORD_REUSE_TIME": 365,
+        "PASSWORD_VERIFY_FUNCTION": "verify_function_11g"
+      },
+      "compliance_status": {
+        "FAILED_LOGIN_ATTEMPTS": "OK",
+        "PASSWORD_LIFE_TIME": "OK",
+        "PASSWORD_LOCK_TIME": "OK",
+        "PASSWORD_REUSE_TIME": "NOT COMPLIANT (min should be 365 days)",
+        "PASSWORD_VERIFY_FUNCTION": "OK"
+      },
+      "recommendations": {
+        "FAILED_LOGIN_ATTEMPTS": null,
+        "PASSWORD_LIFE_TIME": null,
+        "PASSWORD_LOCK_TIME": null,
+        "PASSWORD_REUSE_TIME": "RECOMMEND INCREASING TO AT LEAST 365 DAYS",
+        "PASSWORD_VERIFY_FUNCTION": null
+      }
+    }
+  },
+  "score_global": 50.0,
+  "niveau_risque_global": "haut",
+  "resume": {
+    "total_risques": 3,
+    "risques_critiques": 0,
+    "risques_hauts": 0,
+    "risques_moyens": 0,
+    "top_3_risques": [
+      {
+        "titre": "Comptes utilisateurs non actifs ou verrouillés",
+        "severite": "faible",
+        "description": "Les comptes USER_1, USER_2, USER_3 et USER_5 sont verrouillés ou non actifs. Ces comptes peuvent être vulnérables à une attaque de reconnaissance système.",
+        "impact": "Peut permettre aux attaquants d'identifier des comptes privilégiés sans les utiliser activement.",
+        "recommandation": "Verrouiller ou supprimer ces comptes non utilisés depuis longtemps.",
+        "source": "users"
+      },
+      {
+        "titre": "Comptes avec profile 'ADMIN_PROFILE'",
+        "severite": "faible",
+        "description": "USER_0 a un profil 'ADMIN_PROFILE'. Comme ce compte est actif et qu'il possède des privilèges élevés, il peut être utilisé pour effectuer des actions potentiellement dangereuses.",
+        "impact": "Peut permettre aux attaquants de modifier les paramètres de sécurité ou d'accéder à des données sensibles.",
+        "recommandation": "Verrouiller ce compte ou le supprimer si il n'est pas nécessaire.",
+        "source": "users"
+      },
+      {
+        "titre": "Comptes avec profile 'DEFAULT'",
+        "severite": "faible",
+        "description": "USER_6 et USER_7 ont un profil 'DEFAULT'. Comme ces comptes sont actifs, ils peuvent être utilisés pour effectuer des actions potentiellement dangereuses.",
+        "impact": "Peut permettre aux attaquants de modifier les paramètres de sécurité ou d'accéder à des données sensibles.",
+        "recommandation": "Verrouiller ces comptes ou le supprimer si il n'est pas nécessaire.",
+        "source": "users"
+      }
+    ]
+  }
+}

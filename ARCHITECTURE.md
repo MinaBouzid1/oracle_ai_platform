@@ -145,7 +145,7 @@ User Question → Dashboard Input
 
 **API Publique :**
 ```python
-extractor = OracleDataExtractor(use_mock=True)
+extractor = OracleDataExtractor(use_mock=True) #ou false selon le mode
 extractor.connect()
 results = extractor.extract_all(output_dir='data/oracle_exports')
 # Retourne: dict avec audit_logs, sql_stats, security_config, performance_metrics
@@ -597,13 +597,7 @@ if '..' in filepath:
 
 ## Monitoring & Observabilité
 
-### Logs
-```
-logs/
-  ├── app.log           # Logs application
-  ├── llm_calls.log     # Appels LLM (debug)
-  └── errors.log        # Erreurs uniquement
-```
+
 
 ### Métriques à Suivre
 - Temps de réponse LLM (p50, p95, p99)
@@ -623,7 +617,7 @@ logs/
 
 ### Environnements
 
-1. **Développement** (local)
+1. **Développement** (local) ou oracle 
    - Mock Oracle
    - Ollama (LLM local)
    - ChromaDB SQLite
@@ -635,7 +629,6 @@ logs/
 
 3. **Production** (si déployé)
    - Oracle production (read-only)
-   - Claude API (quota élevé)
    - Pinecone/Weaviate
    - Load balancer
 

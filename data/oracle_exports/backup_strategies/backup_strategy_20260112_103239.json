@@ -1,0 +1,45 @@
+{
+  "strategie_recommandee": "Production Haute Disponibilité",
+  "type_backup": "Incrémentale",
+  "frequence": {
+    "complete": "Hebdomadaire (dimanche 2h)",
+    "incrementale": "Quotidienne (23h)",
+    "archive_logs": "Horaire"
+  },
+  "retention": "14 jours",
+  "stockage": "/u01/backup/oracle (NAS) + bandes mensuelles",
+  "cout_estime": "Moyen (2000-3000€/mois)",
+  "justification": "RPO 1 heure et RTO 4 heures avec criticité haute. Backups quotidiens incrémentaux + archive logs horaires assurent récupération rapide.",
+  "scripts": {
+    "configuration": "\n-- Configuration RMAN\nCONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 14 DAYS;\nCONFIGURE CONTROLFILE AUTOBACKUP ON;\nCONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '/u01/backup/oracle/%F';\nCONFIGURE DEVICE TYPE DISK PARALLELISM 2;\nCONFIGURE COMPRESSION ALGORITHM 'MEDIUM';\n",
+    "full_backup": "\n-- Sauvegarde complète\nRUN {\n  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '/u01/backup/oracle/full_%U';\n  BACKUP AS COMPRESSED BACKUPSET\n    DATABASE\n    PLUS ARCHIVELOG DELETE INPUT;\n  BACKUP CURRENT CONTROLFILE FORMAT '/u01/backup/oracle/control_%U';\n  BACKUP SPFILE FORMAT '/u01/backup/oracle/spfile_%U';\n  RELEASE CHANNEL ch1;\n}\n",
+    "incremental_backup": "\n-- Sauvegarde incrémentale niveau 1\nRUN {\n  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '/u01/backup/oracle/incr_%U';\n  BACKUP AS COMPRESSED BACKUPSET\n    INCREMENTAL LEVEL 1\n    DATABASE\n    PLUS ARCHIVELOG DELETE INPUT;\n  RELEASE CHANNEL ch1;\n}\n",
+    "archive_log_backup": "\n-- Sauvegarde des archive logs\nRUN {\n  ALLOCATE CHANNEL ch1 DEVICE TYPE DISK FORMAT '/u01/backup/oracle/arch_%U';\n  BACKUP AS COMPRESSED BACKUPSET\n    ARCHIVELOG ALL DELETE INPUT;\n  RELEASE CHANNEL ch1;\n}\n"
+  },
+  "cron_schedule": [
+    {
+      "type": "full_backup",
+      "cron": "0 2 * * 0",
+      "description": "Sauvegarde complète hebdomadaire le dimanche à 2h00"
+    },
+    {
+      "type": "incremental_backup",
+      "cron": "0 23 * * *",
+      "description": "Sauvegarde incrémentale quotidienne à 23h00"
+    },
+    {
+      "type": "archive_log_backup",
+      "cron": "0 * * * *",
+      "description": "Sauvegarde archive logs toutes les heures"
+    }
+  ],
+  "input_requirements": {
+    "rpo": "1 heure",
+    "rto": "4 heures",
+    "db_size": "500GB",
+    "criticality": "haute",
+    "budget": "moyen",
+    "transaction_volume": "élevé"
+  },
+  "timestamp": "2026-01-12T10:32:39.855289"
+}

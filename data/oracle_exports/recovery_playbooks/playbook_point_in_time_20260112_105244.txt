@@ -1,0 +1,93 @@
+======================================================================
+🚨 PLAYBOOK DE RÉCUPÉRATION ORACLE
+======================================================================
+
+📋 Scénario : Point In Time
+⏰ Généré le : 2026-01-12T10:45:40.921774
+
+📊 MÉTADONNÉES
+----------------------------------------------------------------------
+⏱️  Durée estimée : 1-4 heures
+⚠️  Niveau de risque : MOYEN - Transactions après le point de récupération seront perdues
+
+✅ PRÉREQUIS :
+   • Accès SYSDBA à la base Oracle
+   • Espace disque suffisant pour la restauration
+   • Backups RMAN valides et accessibles
+   • Archive logs nécessaires disponibles
+
+======================================================================
+📝 PROCÉDURE DÉTAILLÉE
+======================================================================
+
+Voici un exemple de playbook pour une récupération à un point dans le temps (PITR) avec Oracle, basé sur les informations fournies. Ce playbook est écrit en YAML et peut être exécuté avec des outils tels que Ansible.
+
+```yaml
+---
+- name: Oracle Point-In-Time Recovery Playbook
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target_time: "2024-01-15T14:30:00"
+    affected_tablespace: ['USERS', 'DATA']
+    archive_logs: {archive_logs}
+  
+  tasks:
+    - name: Ensure the database is in MOUNT state
+      oracle_database:
+        action: mount
+        state: present
+
+    - name: Create a backup control file for recovery
+      oracle_control_file_backup:
+        target_time: "{{ target_time }}"
+        affected_tablespace: "{{ affected_tablespace | join(',') }}"
+        archive_logs: "{{ archive_logs }}"
+        state: present
+
+    - name: Start the database in NOMOUNT state
+      oracle_database:
+        action: nomount
+        state: present
+
+    - name: Restore control file from backup
+      oracle_control_file_backup:
+        target_time: "{{ target_time }}"
+        affected_tablespace: "{{ affected_tablespace | join(',') }}"
+        archive_logs: "{{ archive_logs }}"
+        state: restore
+
+    - name: Open the database in NOMOUNT state
+      oracle_database:
+        action: open
+        state: present
+
+    - name: Ensure the database is in MOUNT state after recovery
+      oracle_database:
+        action: mount
+        state: present
+
+  handlers:
+    - name: Handle errors during recovery
+      debug:
+        msg: "An error occurred during {{ item }}"
+      with_items:
+        - "{{ tasks }}"
+```
+
+Ce playbook comprend les étapes suivantes :
+
+1. **Mettre la base de données en état MOUNT** : Assurez-vous que la base de données est dans un état où elle peut être récupérée.
+2. **Créer un fichier de contrôle de sauvegarde pour la récupération** : Utilisez le fichier de contrôle de sauvegarde pour définir les tablespaces et les logs d'archive nécessaires à la récupération.
+3. **Démarrez la base de données en état NOMOUNT** : La base de données est démontée pour permettre une récupération plus efficace.
+4. **Restauration du fichier de contrôle depuis la sauvegarde** : Restaurez le fichier de contrôle à partir d'une sauvegarde antérieure.
+5. **Ouvrir la base de données en état NOMOUNT** : Après avoir restauré le fichier de contrôle, ouvrez la base de données pour permettre l'accès aux données.
+6. **Mettre la base de données en état MOUNT après la récupération** : Assurez-vous que la base de données est à nouveau dans un état où elle peut être utilisée.
+
+Il est important de noter que ce playbook nécessite des informations spécifiques sur votre environnement Oracle, notamment les noms d'utilisateur et les mots de passe pour interagir avec la base de données. De plus, il pourrait être nécessaire de personnaliser le playbook en fonction de vos besoins spécifiques.
+
+Pour exécuter ce playbook, vous devrez avoir un fichier Ansible `inventory` configuré pour votre environnement Oracle et des variables d'entraînement appropriées définies dans votre fichier `ansible.cfg`.
+
+======================================================================
+✅ FIN DU PLAYBOOK
+======================================================================

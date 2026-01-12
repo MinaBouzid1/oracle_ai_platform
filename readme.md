@@ -8,6 +8,7 @@ Plateforme complète d'administration Oracle Database assistée par Intelligence
 - [Fonctionnalités](#fonctionnalités)
 - [Architecture](#architecture)
 - [Installation](#installation)
+- [Modes de Fonctionnement](#modes-de-fonctionnement)
 - [Utilisation](#utilisation)
 - [Modules](#modules)
 - [Tests](#tests)
@@ -80,8 +81,8 @@ Cette plateforme combine l'optimisation des requêtes Oracle, l'audit de sécuri
      ┌───────────┼───────────┬────────────┐
      │           │           │            │
 ┌────▼────┐ ┌───▼───┐ ┌─────▼───┐  ┌────▼────┐
-│Modules  │ │ LLM   │ │Vector DB│  │ Oracle  │
-│(9x)     │ │Engine │ │(Chroma) │  │ Mock/DB │
+│Modules  │ │Ollama │ │Vector DB│  │ Oracle  │
+│(9x)     │ │(Local)│ │(Chroma) │  │ Docker  │
 └─────────┘ └───────┘ └─────────┘  └─────────┘
 ```
 
@@ -89,7 +90,7 @@ Cette plateforme combine l'optimisation des requêtes Oracle, l'audit de sécuri
 
 1. **Data Extractor** : Extraction des données Oracle
 2. **RAG Setup** : Base de connaissances vectorielle
-3. **LLM Engine** : Interface centralisée pour le LLM
+3. **LLM Engine** : Interface centralisée pour Ollama
 4. **Security Auditor** : Audit de sécurité
 5. **Query Optimizer** : Optimisation de requêtes
 6. **Anomaly Detector** : Détection d'anomalies
@@ -104,15 +105,16 @@ Cette plateforme combine l'optimisation des requêtes Oracle, l'audit de sécuri
 ### Prérequis
 
 - Python 3.9+
-- Clé API : Claude (Anthropic) OU OpenAI OU Ollama (local)
+- Docker et Docker Compose (pour Oracle)
+- Ollama installé localement
 - 2 GB d'espace disque
-- 4 GB RAM minimum
+- 8 GB RAM minimum (pour Oracle + Ollama)
 
 ### Installation Rapide
 
 ```bash
 # 1. Cloner le projet
-git clone <votre-repo>
+git clone <https://github.com/MinaBouzid1/oracle_ai_platform>
 cd oracle-ai-platform
 
 # 2. Créer l'environnement virtuel
@@ -127,11 +129,19 @@ venv\Scripts\activate
 # 4. Installer les dépendances
 pip install -r requirements.txt
 
-# 5. Configurer les variables d'environnement
-cp .env.example .env
-# Éditer .env et ajouter votre clé API
+# 5. Installer Ollama
+# Sur Linux/Mac :
+curl -fsSL https://ollama.com/install.sh | sh
+# Sur Windows : télécharger depuis https://ollama.com/download
 
-# 6. Initialiser les données
+# 6. Télécharger le modèle LLM
+ollama pull llama2
+
+# 7. Configurer les variables d'environnement
+cp .env.example .env
+# Éditer .env selon vos besoins
+
+# 8. Initialiser les données (mode Mock)
 cd src
 python mock_oracle.py
 python data_extractor.py
@@ -140,26 +150,126 @@ python synthetic_logs_generator.py
 cd ..
 ```
 
-### Configuration du LLM
+### Installation d'Oracle avec Docker (Optionnel)
 
-Éditez `.env` et choisissez votre provider :
+Pour utiliser une vraie base de données Oracle :
 
-**Option A : Claude (Recommandé)**
 ```bash
-ANTHROPIC_API_KEY=sk-ant-votre-cle-ici
-LLM_PROVIDER=claude
+# 1. Créer le fichier docker-compose.yml
+cat > docker-compose.yml << EOF
+version: '3.8'
+services:
+  oracle:
+    image: container-registry.oracle.com/database/express:21.3.0-xe
+    ports:
+      - "1521:1521"
+      - "5500:5500"
+    environment:
+      - ORACLE_PWD=YourStrongPassword123
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+volumes:
+  oracle-data:
+EOF
+
+# 2. Lancer Oracle
+docker-compose up -d
+
+# 3. Attendre que Oracle soit prêt (2-3 minutes)
+docker logs -f oracle-ai-platform-oracle-1
+
+# 4. Configurer la connexion dans .env
+# Voir section "Modes de Fonctionnement" ci-dessous
 ```
 
-**Option B : OpenAI**
-```bash
-OPENAI_API_KEY=sk-votre-cle-ici
-LLM_PROVIDER=openai
-```
+---
 
-**Option C : Ollama (Local gratuit)**
+## 🔄 Modes de Fonctionnement
+
+La plateforme supporte **deux modes** : **Mock** (simulateur) et **Oracle** (base réelle). C'est à l'utilisateur de choisir selon ses besoins.
+
+### Mode 1 : Mock (Recommandé pour Tests Rapides)
+
+**Avantages :**
+- ✅ Pas besoin d'Oracle installé
+- ✅ Démarrage instantané
+- ✅ Parfait pour démonstrations et tests
+- ✅ Données synthétiques réalistes
+
+**Configuration `.env` :**
 ```bash
+# Mode Mock
+USE_MOCK=true
 LLM_PROVIDER=ollama
-OLLAMA_MODEL=llama2
+OLLAMA_MODEL=llama2 ou mistral
+```
+
+**Initialisation :**
+```bash
+cd src
+python mock_oracle.py          # Génère les données simulées
+python data_extractor.py       # Extrait les données
+python rag_setup.py            # Initialise RAG
+python synthetic_logs_generator.py  # Génère les logs
+```
+
+### Mode 2 : Oracle (Production)
+
+**Avantages :**
+- ✅ Connexion à une vraie base Oracle
+- ✅ Données réelles pour audits précis
+- ✅ Tests en environnement réaliste
+
+**Prérequis :**
+- Oracle Database installé (Docker ou serveur)
+- Droits DBA pour accès aux vues système
+
+**Configuration `.env` :**
+```bash
+# Mode Oracle
+USE_MOCK=false
+
+# Connexion Oracle
+ORACLE_HOST=localhost
+ORACLE_PORT=1521
+ORACLE_SERVICE=XEPDB1
+ORACLE_USER=system
+ORACLE_PASSWORD=YourStrongPassword123
+ORACLE_WALLET_PATH=/path/to/wallet  # Optionnel
+
+# LLM
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=llama2 ou mistral
+```
+
+**Fichier de connexion : `oracle_connector.py`**
+
+Le module `oracle_connector.py` gère automatiquement la connexion selon le mode :
+
+```python
+from oracle_connector import OracleConnector
+
+# Le mode est détecté automatiquement depuis .env
+connector = OracleConnector()
+connector.connect()
+
+# Exécuter des requêtes
+results = connector.execute_query("SELECT * FROM DBA_USERS")
+```
+
+**Basculer entre les modes :**
+
+Il suffit de modifier `USE_MOCK` dans `.env` et relancer l'application :
+
+```bash
+# Passer en mode Oracle
+sed -i 's/USE_MOCK=true/USE_MOCK=false/' .env
+
+# Passer en mode Mock
+sed -i 's/USE_MOCK=false/USE_MOCK=true/' .env
+
+# Relancer
+./run.sh
 ```
 
 ---
@@ -184,6 +294,9 @@ L'application sera accessible à : **http://localhost:8501**
 ```bash
 # Activer l'environnement
 source venv/bin/activate  # ou venv\Scripts\activate sur Windows
+
+# Vérifier qu'Ollama est lancé
+ollama list
 
 # Lancer le dashboard
 cd src
@@ -229,7 +342,7 @@ python recovery_guide.py
 ### Module 1 : Data Extractor
 **Fichier :** `src/data_extractor.py`
 
-Extrait les données d'Oracle (ou simulateur) :
+Extrait les données d'Oracle ou du simulateur :
 - Logs d'audit (table AUD$)
 - Statistiques SQL (V$SQLSTATS)
 - Configuration sécurité (DBA_USERS, DBA_ROLES)
@@ -239,7 +352,8 @@ Extrait les données d'Oracle (ou simulateur) :
 ```python
 from data_extractor import OracleDataExtractor
 
-extractor = OracleDataExtractor(use_mock=True)
+# Mode automatique (détecte depuis .env)
+extractor = OracleDataExtractor()
 extractor.connect()
 results = extractor.extract_all()
 ```
@@ -264,8 +378,8 @@ context = rag.retrieve_context("optimisation index Oracle", top_k=5)
 ### Module 3 : LLM Engine
 **Fichier :** `src/llm_engine.py`
 
-Interface centralisée pour tous les appels LLM :
-- Support Claude, OpenAI, Ollama
+Interface centralisée pour Ollama :
+- Support Ollama (local)
 - Gestion des prompts via `prompts.yaml`
 - Retry automatique et gestion d'erreurs
 
@@ -401,13 +515,13 @@ pytest tests/ --cov=src --cov-report=html
 ### Tests d'Intégration
 
 ```bash
-# Test du flux complet
+# Test du flux complet (mode Mock)
 cd src
 python -c "
 from data_extractor import OracleDataExtractor
 from security_audit import SecurityAuditor
 
-extractor = OracleDataExtractor(use_mock=True)
+extractor = OracleDataExtractor()
 extractor.connect()
 extractor.extract_all()
 
@@ -438,15 +552,20 @@ print(f'Score: {results[\"score_global\"]}/100')
 - **cx_Oracle** : Connexion Oracle
 
 ### LLM & IA
-- **Claude Sonnet 4** : LLM principal (Anthropic)
+- **Ollama** : Serveur LLM local (llama2)
 - **Sentence Transformers** : Embeddings
 - **RAG** : Retrieval-Augmented Generation
+
+### Base de Données
+- **Oracle Database XE 21c** : Base de données (via Docker)
+- **Mock Oracle** : Simulateur pour tests rapides
 
 ### Frontend
 - **Streamlit** : Interface web
 - **Plotly** : Visualisations interactives
 
 ### DevOps
+- **Docker** : Conteneurisation Oracle
 - **pytest** : Tests unitaires
 - **loguru** : Logging
 - **python-dotenv** : Gestion des variables d'environnement
@@ -458,6 +577,7 @@ print(f'Score: {results[\"score_global\"]}/100')
 ```
 oracle-ai-platform/
 ├── src/                          # Code source
+│   ├── oracle_connector.py       # Connecteur Oracle/Mock
 │   ├── data_extractor.py         # Module 1
 │   ├── rag_setup.py              # Module 2
 │   ├── llm_engine.py             # Module 3
@@ -509,21 +629,20 @@ cd src
 python rag_setup.py
 ```
 
-### Connexion à un Oracle Réel
+### Optimisation d'Ollama
 
-Éditez `.env` :
+Pour améliorer les performances :
 
 ```bash
-ORACLE_HOST=votre-host
-ORACLE_PORT=1521
-ORACLE_SERVICE=ORCL
-ORACLE_USER=system
-ORACLE_PASSWORD=votre-mot-de-passe
-```
+# Augmenter la mémoire allouée
+export OLLAMA_MAX_LOADED_MODELS=2
+export OLLAMA_NUM_PARALLEL=4
 
-Dans le code :
-```python
-extractor = OracleDataExtractor(use_mock=False)  # Utiliser Oracle réel
+# Utiliser un modèle plus rapide
+ollama pull llama2:7b-chat
+
+# Modifier .env
+OLLAMA_MODEL=llama2:7b-chat
 ```
 
 ---
@@ -532,39 +651,58 @@ extractor = OracleDataExtractor(use_mock=False)  # Utiliser Oracle réel
 
 ### Temps d'Exécution Typiques
 
-| Module | Temps moyen | Remarques |
-|--------|-------------|-----------|
-| Extraction données | 5-10s | Simulateur |
-| Audit sécurité | 30-45s | 3 catégories |
-| Optimisation requêtes | 1-2 min | 10 requêtes |
-| Détection anomalies | 2-3 min | 70 logs |
-| Génération stratégie | 15-30s | 1 stratégie |
-| Playbook restauration | 10-20s | 1 scénario |
+| Module | Mode Mock | Mode Oracle | Remarques |
+|--------|-----------|-------------|-----------|
+| Extraction données | 5-10s | 30-60s | Vues système |
+| Audit sécurité | 3-5 min | 8-12 min | Analyse IA complexe |
+| Optimisation requêtes | 4-6 min | 8-15 min | Plans d'exécution |
+| Détection anomalies | 5-8 min | 10-15 min | 70+ logs |
+| Génération stratégie | 1-2 min | 1-2 min | Identique |
+| Playbook restauration | 30-60s | 30-60s | Identique |
 
-### Coûts API (estimés)
+**Note :** Les temps d'exécution dépendent fortement de :
+- La puissance CPU/GPU (Ollama)
+- La taille de la base de données (mode Oracle)
+- Le modèle LLM utilisé (llama2:7b vs llama2:13b)
+- La complexité des analyses demandées
 
-- **Claude Sonnet 4** : ~$0.50-2.00 par session complète
-- **OpenAI GPT-3.5** : ~$0.30-1.50 par session
-- **Ollama** : Gratuit (local)
+### Coûts
+
+- **Ollama (Local)** : Gratuit, mais nécessite 8 GB+ RAM
+- **Hébergement Oracle** : Docker local gratuit, ou cloud payant
 
 ---
 
 ## ❓ FAQ
 
 **Q : L'application fonctionne sans Oracle installé ?**  
-R : Oui ! Le simulateur `mock_oracle.py` génère des données réalistes.
+R : Oui ! Utilisez le mode Mock (`USE_MOCK=true`) qui génère des données réalistes. Parfait pour tests et démonstrations.
 
-**Q : Puis-je utiliser sans clé API ?**  
-R : Oui, avec Ollama (local). Installez Ollama et configurez `LLM_PROVIDER=ollama`.
+**Q : Comment choisir entre Mock et Oracle ?**  
+R : 
+- **Mock** : Tests rapides, démos, développement initial
+- **Oracle** : Production, audits réels, données précises
 
-**Q : Les données sont-elles sauvegardées ?**  
-R : Oui, tous les rapports sont dans `data/oracle_exports/reports/`.
+**Q : Ollama est obligatoire ?**  
+R : Oui, la plateforme utilise exclusivement Ollama pour le LLM. Installation simple et gratuite.
 
-**Q : Comment ajouter de nouveaux prompts ?**  
-R : Éditez `data/prompts.yaml` et ajoutez vos templates.
+**Q : Puis-je utiliser un Oracle distant ?**  
+R : Oui, configurez `ORACLE_HOST` dans `.env` avec l'IP/hostname du serveur Oracle.
+
+**Q : Les analyses sont-elles sauvegardées ?**  
+R : Oui, tous les rapports sont dans `data/oracle_exports/reports/` au format JSON.
+
+**Q : Comment améliorer la vitesse d'analyse ?**  
+R : 
+- Utilisez un modèle plus léger (`llama2:7b` au lieu de `13b`)
+- Augmentez la RAM allouée à Ollama
+- Utilisez un GPU si disponible
 
 **Q : Le chatbot garde-t-il la mémoire ?**  
 R : Oui, l'historique est conservé pendant la session Streamlit.
+
+**Q : Comment ajouter de nouveaux prompts ?**  
+R : Éditez `data/prompts.yaml` et ajoutez vos templates.
 
 ---
 
@@ -573,43 +711,36 @@ R : Oui, l'historique est conservé pendant la session Streamlit.
 Ce projet est développé dans un cadre académique. Pour contribuer :
 
 1. Fork le projet
-2. Créez une branche (`git checkout -b feature/AmazingFeature`)
-3. Committez vos changements (`git commit -m 'Add AmazingFeature'`)
-4. Push vers la branche (`git push origin feature/AmazingFeature`)
+2. Créez une branche (`git checkout -b feature/NewFeature`)
+3. Committez vos changements (`git commit -m 'Add NewFeature'`)
+4. Push vers la branche (`git push origin feature/NewFeature`)
 5. Ouvrez une Pull Request
 
 ---
 
-## 📄 Licence
 
-Ce projet est sous licence MIT - voir le fichier `LICENSE` pour plus de détails.
+## 🚀 Démarrage Rapide (Résumé)
 
----
+```bash
+# 1. Installation
+git clone <https://github.com/MinaBouzid1/oracle_ai_platform> && cd oracle-ai-platform
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
 
-## 👥 Auteurs
+# 2. Installer Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama2
 
-- **[Votre Nom]** - Développement complet
-- **Encadrant** : [Nom de l'encadrant]
-- **Institution** : [Nom de l'université/école]
+# 3. Configuration (mode Mock)
+cp .env.example .env
+# Vérifier que USE_MOCK=true
 
----
+# 4. Initialisation
+cd src && python mock_oracle.py && python data_extractor.py
+python rag_setup.py && python synthetic_logs_generator.py
 
-## 🙏 Remerciements
+# 5. Lancement
+streamlit run dashboard.py
+```
 
-- Anthropic pour l'API Claude
-- Oracle Corporation pour la documentation
-- Communauté Streamlit
-- Professeurs et encadrants du projet
-
----
-
-## 📞 Support
-
-Pour toute question ou problème :
-- 📧 Email : votre-email@example.com
-- 🐛 Issues : [GitHub Issues](https://github.com/votre-repo/issues)
-- 📚 Documentation : Ce README
-
----
-
-**Développé avec ❤️ pour l'administration Oracle intelligente**
+**Développé  pour l'administration Oracle intelligente**
