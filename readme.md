@@ -489,7 +489,13 @@ Interface web Streamlit :
 - 5 pages : Accueil, Sécurité, Performance, Sauvegardes, Chatbot
 - Graphiques interactifs (Plotly)
 - Chatbot conversationnel
+#### 📸 Captures d’écran
 
+![Accueil](images/dashboard.png)
+![Sécurité](images/dashboard_securite.png)(images/dashboard_securite2.png)
+![Performance](images/dashboard_performance.png)
+![Sauvegardes](images/dashboard_sauvegardes.png)
+![Chatbot](images/dashboard_chatbot.png)
 **Lancement :**
 ```bash
 streamlit run src/dashboard.py
