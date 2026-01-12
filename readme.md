@@ -490,9 +490,11 @@ Interface web Streamlit :
 - Graphiques interactifs (Plotly)
 - Chatbot conversationnel
 #### 📸 Captures d’écran
-
+## Accueil
 ![Accueil](images/dashboard.png)
-![Sécurité](images/dashboard_securite.png)(images/dashboard_securite2.png)
+## Sécurité
+![Sécurité](images/dashboard_securite.png)
+![Sécurité](images/dashboard_securite2.png)
 ![Performance](images/dashboard_performance.png)
 ![Sauvegardes](images/dashboard_sauvegardes.png)
 ![Chatbot](images/dashboard_chatbot.png)
